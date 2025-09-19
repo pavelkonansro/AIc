@@ -1,0 +1,38 @@
+{
+  "name": "aic-app",
+  "private": true,
+  "description": "AIc - AI companion for teens (monorepo)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:mobile\"",
+    "dev:api": "cd apps/api && npm run dev",
+    "dev:mobile": "cd apps/mobile && flutter run",
+    "build": "npm run build:packages && npm run build:api",
+    "build:packages": "cd packages/common && npm run build && cd ../safety && npm run build",
+    "build:api": "cd apps/api && npm run build",
+    "test": "npm run test:api && npm run test:mobile",
+    "test:api": "cd apps/api && npm test",
+    "test:mobile": "cd apps/mobile && flutter test",
+    "lint": "npm run lint:api && npm run lint:mobile",
+    "lint:api": "cd apps/api && npm run lint",
+    "lint:mobile": "cd apps/mobile && flutter analyze",
+    "infra:up": "cd infra && docker compose up -d",
+    "infra:down": "cd infra && docker compose down",
+    "db:migrate": "cd apps/api && npx prisma migrate dev",
+    "db:seed": "cd apps/api && npm run seed",
+    "clean": "npm run clean:api && npm run clean:mobile && npm run clean:packages",
+    "clean:api": "cd apps/api && rm -rf dist node_modules",
+    "clean:mobile": "cd apps/mobile && flutter clean",
+    "clean:packages": "cd packages/common && rm -rf dist node_modules && cd ../safety && rm -rf dist node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

@@ -1,0 +1,135 @@
+name: Mobile CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/mobile.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: |
+          cd apps/mobile
+          flutter pub get
+
+      - name: Analyze code
+        run: |
+          cd apps/mobile
+          flutter analyze
+
+      - name: Check formatting
+        run: |
+          cd apps/mobile
+          dart format --output=none --set-exit-if-changed .
+
+      - name: Run tests
+        run: |
+          cd apps/mobile
+          flutter test
+
+  build-android:
+    needs: analyze
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Get dependencies
+        run: |
+          cd apps/mobile
+          flutter pub get
+
+      - name: Build APK
+        run: |
+          cd apps/mobile
+          flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+
+  build-ios:
+    needs: analyze
+    runs-on: macos-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: |
+          cd apps/mobile
+          flutter pub get
+
+      - name: Build iOS (no signing)
+        run: |
+          cd apps/mobile
+          flutter build ios --release --no-codesign
+
+      # TODO: Add code signing and TestFlight upload
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: |
+          cd apps/mobile
+          flutter pub get
+
+      - name: Run dependency check
+        run: |
+          cd apps/mobile
+          flutter pub deps
+
+      # TODO: Add SAST scanning for Flutter/Dart
