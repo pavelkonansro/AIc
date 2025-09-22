@@ -24,6 +24,3 @@ class AicApp extends StatelessWidget {
     );
   }
 }
-
-
-

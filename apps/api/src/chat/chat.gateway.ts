@@ -5,8 +5,9 @@ import {
   ConnectedSocket,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  WebSocketServer,
 } from '@nestjs/websockets';
-import { Socket } from 'socket.io';
+import { Socket, Server } from 'socket.io';
 import { ChatService } from './chat.service';
 
 @WebSocketGateway({ 
@@ -14,6 +15,12 @@ import { ChatService } from './chat.service';
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server: Server;
+
+  private readonly sessionClients = new Map<string, Set<string>>();
+  private readonly clientSessions = new Map<string, string>();
+
   constructor(private readonly chatService: ChatService) {}
 
   async handleConnection(client: Socket) {
@@ -22,6 +29,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleDisconnect(client: Socket) {
     console.log(`Клиент отключен: ${client.id}`);
+    this.unregisterClientSession(client);
   }
 
   @SubscribeMessage('join_session')
@@ -29,9 +37,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { sessionId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    // Покидаем все комнаты (альтернативный способ)
+    const rooms = Array.from(client.rooms);
+    rooms.forEach(room => {
+      if (room !== client.id) { // Не покидаем собственную комнату
+        client.leave(room);
+      }
+    });
+
+    this.unregisterClientSession(client);
+
+    // Затем присоединяемся к новой сессии
     client.join(data.sessionId);
+    this.registerClientSession(client, data.sessionId);
     console.log(`Клиент ${client.id} присоединился к сессии ${data.sessionId}`);
-    
+
     return { event: 'joined_session', data: { sessionId: data.sessionId } };
   }
 
@@ -41,63 +61,83 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { sessionId, text } = data;
-    
-    try {
-      // Сохраняем сообщение пользователя
-      const userMessage = await this.chatService.addMessage(
-        sessionId,
-        'user',
-        text,
-      );
 
-      // Эмитим сообщение пользователя всем участникам сессии
+    try {
+      console.log(`💬 Получено сообщение от ${client.id} в сессии ${sessionId}: "${text}"`);
+
+      // Проверяем сколько клиентов в комнате
+      const roomClients = await this.server.in(sessionId).fetchSockets();
+      console.log(`👥 Клиентов в комнате ${sessionId}: ${roomClients.length}`);
+
+      // Эмитим сообщение пользователя только другим участникам сессии (исключая отправителя)
       client.to(sessionId).emit('message', {
-        id: userMessage.id,
         role: 'user',
         content: text,
-        createdAt: userMessage.createdAt,
+        timestamp: new Date().toISOString(),
       });
 
-      // Генерируем ответ ИИ (пока заглушка)
-      const aiResponse = await this.generateAIResponse(text, sessionId);
-      
-      // Сохраняем ответ ИИ
-      const aiMessage = await this.chatService.addMessage(
-        sessionId,
-        'assistant',
-        aiResponse.content,
-        aiResponse.safetyFlag,
-      );
+      // Показываем индикатор печати
+      this.server.in(sessionId).emit('typing', {
+        isTyping: true,
+        timestamp: new Date().toISOString(),
+      });
 
-      // Эмитим ответ ИИ
-      client.to(sessionId).emit('message', {
-        id: aiMessage.id,
+      // Обрабатываем сообщение через AI сервис
+      const shouldSendPush = this.shouldQueuePush(sessionId);
+      const aiResponse = await this.chatService.processUserMessage(sessionId, text, {
+        deliverPush: shouldSendPush,
+        data: {
+          transport: 'socket',
+        },
+      });
+
+      // Скрываем индикатор печати
+      this.server.in(sessionId).emit('typing', {
+        isTyping: false,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Эмитим ответ AI всем участникам сессии (включая отправителя)
+      this.server.in(sessionId).emit('message', {
         role: 'assistant',
-        content: aiResponse.content,
-        createdAt: aiMessage.createdAt,
-        safetyFlag: aiResponse.safetyFlag,
+        content: aiResponse.message,
+        timestamp: new Date().toISOString(),
+        model: aiResponse.model,
+        provider: aiResponse.provider,
+        usage: aiResponse.usage
       });
 
       return {
         event: 'message_sent',
         data: {
           userMessage: {
-            id: userMessage.id,
             role: 'user',
             content: text,
-            createdAt: userMessage.createdAt,
+            timestamp: new Date().toISOString(),
           },
           aiMessage: {
-            id: aiMessage.id,
             role: 'assistant',
-            content: aiResponse.content,
-            createdAt: aiMessage.createdAt,
-            safetyFlag: aiResponse.safetyFlag,
+            content: aiResponse.message,
+            timestamp: new Date().toISOString(),
+            model: aiResponse.model,
+            provider: aiResponse.provider,
+            usage: aiResponse.usage
           },
         },
       };
     } catch (error) {
       console.error('Ошибка обработки сообщения:', error);
+
+      // Скрываем индикатор печати при ошибке
+      this.server.in(sessionId).emit('typing', {
+        isTyping: false,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.server.in(sessionId).emit('error', {
+        message: 'Ошибка при отправке сообщения',
+        timestamp: new Date().toISOString(),
+      });
       return {
         event: 'error',
         data: { message: 'Ошибка при отправке сообщения' },
@@ -105,44 +145,50 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private async generateAIResponse(userMessage: string, sessionId: string) {
-    // TODO: Интегрировать с реальным AI API (OpenAI, Azure AI, etc.)
-    // TODO: Применить safety policy и фильтры
-    
-    // Простые эвристики для демо
-    const lowerMessage = userMessage.toLowerCase();
-    
-    // Проверка на кризисные слова
-    const crisisKeywords = ['умереть', 'смерть', 'убить', 'суицид', 'покончить'];
-    const hasCrisisContent = crisisKeywords.some(keyword => 
-      lowerMessage.includes(keyword)
-    );
+  private registerClientSession(client: Socket, sessionId: string) {
+    client.data.sessionId = sessionId;
 
-    if (hasCrisisContent) {
-      return {
-        content: `Мне очень жаль, что тебе так тяжело. Ты не одинок в своих переживаниях. 
-Пожалуйста, обратись за помощью к взрослому, которому доверяешь, или к специалисту. 
-Всегда есть люди, готовые помочь. Можешь найти контакты экстренной помощи в разделе SOS.`,
-        safetyFlag: 'crisis_detected',
-      };
+    const previousSessionId = this.clientSessions.get(client.id);
+    if (previousSessionId && previousSessionId !== sessionId) {
+      const previousClients = this.sessionClients.get(previousSessionId);
+      previousClients?.delete(client.id);
+      if (previousClients && previousClients.size === 0) {
+        this.sessionClients.delete(previousSessionId);
+      }
     }
 
-    // Обычные ответы
-    const responses = [
-      'Понимаю тебя. Расскажи мне больше об этом.',
-      'Это звучит важно для тебя. Как ты себя чувствуешь?',
-      'Спасибо, что поделился со мной. Что ты думаешь об этом?',
-      'Я здесь, чтобы тебя выслушать. Продолжай, пожалуйста.',
-      'Интересно! А как бы ты хотел, чтобы это изменилось?',
-    ];
+    let clients = this.sessionClients.get(sessionId);
+    if (!clients) {
+      clients = new Set<string>();
+      this.sessionClients.set(sessionId, clients);
+    }
 
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-    
-    return {
-      content: randomResponse,
-      safetyFlag: 'safe',
-    };
+    clients.add(client.id);
+    this.clientSessions.set(client.id, sessionId);
+  }
+
+  private unregisterClientSession(client: Socket) {
+    const sessionId = this.clientSessions.get(client.id) || client.data?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+
+    client.data.sessionId = undefined;
+    this.clientSessions.delete(client.id);
+
+    const clients = this.sessionClients.get(sessionId);
+    if (!clients) {
+      return;
+    }
+
+    clients.delete(client.id);
+    if (clients.size === 0) {
+      this.sessionClients.delete(sessionId);
+    }
+  }
+
+  private shouldQueuePush(sessionId: string): boolean {
+    const clients = this.sessionClients.get(sessionId);
+    return !clients || clients.size === 0;
   }
 }
-
-

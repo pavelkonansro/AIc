@@ -96,8 +96,9 @@ class ChatSession {
       startedAt: DateTime.parse(json['startedAt']),
       status: json['status'],
       messages: (json['messages'] as List<dynamic>?)
-          ?.map((m) => ChatMessage.fromJson(m))
-          .toList() ?? [],
+              ?.map((m) => ChatMessage.fromJson(m))
+              .toList() ??
+          [],
     );
   }
 }
@@ -164,7 +165,8 @@ class AppSettings {
     return AppSettings(
       theme: theme ?? this.theme,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
-      dailyRemindersEnabled: dailyRemindersEnabled ?? this.dailyRemindersEnabled,
+      dailyRemindersEnabled:
+          dailyRemindersEnabled ?? this.dailyRemindersEnabled,
       reminderHour: reminderHour ?? this.reminderHour,
       reminderMinute: reminderMinute ?? this.reminderMinute,
     );

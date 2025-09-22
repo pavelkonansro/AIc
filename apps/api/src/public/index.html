@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AIc API Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background-color: #2196F3;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .healthy { background-color: #d4edda; color: #155724; }
+        .unhealthy { background-color: #f8d7da; color: #721c24; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .button {
+            background-color: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover { background-color: #1976D2; }
+        .button.danger { background-color: #f44336; }
+        .button.danger:hover { background-color: #d32f2f; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .endpoint {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐶 AIc API Dashboard</h1>
+        <p>AI companion for teens - Backend API Management</p>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>🔧 System Health</h2>
+            <div id="healthStatus">Loading...</div>
+            <button class="button" onclick="checkHealth()">Refresh Health</button>
+        </div>
+
+        <div class="card">
+            <h2>🤖 LM Studio</h2>
+            <div id="lmStudioStatus">Loading...</div>
+            <button class="button" onclick="testLMStudio()">Test Connection</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🔗 Available Endpoints</h2>
+        <div class="endpoint">
+            <strong>GET /</strong> - API information
+        </div>
+        <div class="endpoint">
+            <strong>GET /health</strong> - System health check
+        </div>
+        <div class="endpoint">
+            <strong>GET /api</strong> - Swagger documentation
+        </div>
+        <div class="endpoint">
+            <strong>GET /test/websocket.html</strong> - WebSocket test page
+        </div>
+        <div class="endpoint">
+            <strong>POST /auth/guest</strong> - Create guest user
+        </div>
+        <div class="endpoint">
+            <strong>POST /chat/session</strong> - Create chat session
+        </div>
+        <div class="endpoint">
+            <strong>WebSocket /chat</strong> - Real-time chat
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🧪 Quick Actions</h2>
+        <button class="button" onclick="window.open('/test/websocket.html', '_blank')">
+            Open WebSocket Test
+        </button>
+        <button class="button" onclick="window.open('/api', '_blank')">
+            Open Swagger Docs
+        </button>
+        <button class="button" onclick="createTestUser()">
+            Create Test User
+        </button>
+        <button class="button danger" onclick="cleanupTestData()">
+            Cleanup Test Data
+        </button>
+    </div>
+
+    <div class="card">
+        <h2>📊 API Response</h2>
+        <pre id="apiResponse">Click any action to see the response...</pre>
+    </div>
+
+    <script>
+        function updateResponse(data, title = 'Response') {
+            const responseElement = document.getElementById('apiResponse');
+            responseElement.innerHTML = `<strong>${title}:</strong>\n${JSON.stringify(data, null, 2)}`;
+        }
+
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                updateResponse(data, 'Health Check');
+
+                // Update health status
+                const healthDiv = document.getElementById('healthStatus');
+                const lmStudioDiv = document.getElementById('lmStudioStatus');
+
+                healthDiv.innerHTML = `
+                    <div class="status healthy">
+                        ✅ API: ${data.services.api}
+                    </div>
+                    <div class="status ${data.services.database === 'healthy' ? 'healthy' : 'unhealthy'}">
+                        ${data.services.database === 'healthy' ? '✅' : '❌'} Database: ${data.services.database}
+                    </div>
+                `;
+
+                const lmStudio = data.services.lmStudio;
+                lmStudioDiv.innerHTML = `
+                    <div class="status ${lmStudio.status === 'healthy' ? 'healthy' : 'unhealthy'}">
+                        ${lmStudio.status === 'healthy' ? '✅' : '❌'} Status: ${lmStudio.status}
+                    </div>
+                    ${lmStudio.error ? `<div class="status unhealthy">Error: ${lmStudio.error}</div>` : ''}
+                    ${lmStudio.models ? `<div>Models: ${lmStudio.models.length} available</div>` : ''}
+                    <div>URL: ${lmStudio.baseUrl}</div>
+                `;
+            } catch (error) {
+                updateResponse({ error: error.message }, 'Health Check Error');
+            }
+        }
+
+        async function testLMStudio() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                updateResponse(data.services.lmStudio, 'LM Studio Status');
+            } catch (error) {
+                updateResponse({ error: error.message }, 'LM Studio Test Error');
+            }
+        }
+
+        async function createTestUser() {
+            try {
+                const response = await fetch('/test/create-user', { method: 'POST' });
+                const data = await response.json();
+                updateResponse(data, 'Test User Created');
+            } catch (error) {
+                updateResponse({ error: error.message }, 'Create User Error');
+            }
+        }
+
+        async function cleanupTestData() {
+            if (!confirm('Are you sure you want to cleanup test data?')) return;
+
+            try {
+                const response = await fetch('/test/cleanup');
+                const data = await response.json();
+                updateResponse(data, 'Cleanup Complete');
+            } catch (error) {
+                updateResponse({ error: error.message }, 'Cleanup Error');
+            }
+        }
+
+        // Load health status on page load
+        checkHealth();
+    </script>
+</body>
+</html>

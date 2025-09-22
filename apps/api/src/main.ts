@@ -4,18 +4,22 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // Security
-  app.use(helmet());
+  // app.use(helmet()); // Временно отключено для Flutter веб
   app.use(cookieParser());
   
-  // CORS
+  // CORS - разрешаем все origins для разработки
   app.enableCors({ 
-    origin: [/localhost/, /127\.0\.0\.1/], 
-    credentials: true 
+    origin: true, // Разрешаем все origins для разработки
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
   
   // Validation
@@ -25,6 +29,9 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
   
+  // Static files
+  app.useStaticAssets(join(__dirname, '..', 'public'));
+
   // Swagger documentation
   const config = new DocumentBuilder()
     .setTitle('AIc API')

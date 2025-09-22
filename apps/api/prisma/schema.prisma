@@ -19,6 +19,7 @@ model User {
   profile      Profile?
   sessions     ChatSession[]
   purchases    Purchase[]
+  devices      NotificationDevice[]
 
   @@map("users")
 }
@@ -125,6 +126,7 @@ model Notification {
   isSent    Boolean  @default(false)
   sentAt    DateTime?
   createdAt DateTime @default(now())
+  deliveries NotificationDelivery[]
 
   @@index([userId, isSent])
   @@index([type])
@@ -146,4 +148,38 @@ model SafetyLog {
   @@map("safety_logs")
 }
 
+model NotificationDevice {
+  id          String   @id @default(cuid())
+  userId      String?
+  platform    String   // ios/android/web
+  deviceToken String   @unique
+  appVersion  String?
+  locale      String?
+  metadata    Json?
+  isActive    Boolean  @default(true)
+  disabledAt  DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deliveries  NotificationDelivery[]
 
+  @@index([userId, isActive])
+  @@map("notification_devices")
+}
+
+model NotificationDelivery {
+  id             String      @id @default(cuid())
+  notificationId String
+  deviceId       String
+  status         String      @default("pending") // pending/sent/failed
+  error          String?
+  sentAt         DateTime?
+  createdAt      DateTime    @default(now())
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  device         NotificationDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([deviceId])
+  @@map("notification_deliveries")
+}

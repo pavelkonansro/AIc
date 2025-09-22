@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../services/api_client.dart';
+import '../services/logger.dart';
 import 'app_state.dart';
 
 // API Client provider
@@ -26,7 +27,7 @@ class UserNotifier extends StateNotifier<User?> {
         state = User.fromJson(Map<String, dynamic>.from(userData));
       }
     } catch (e) {
-      print('Ошибка загрузки пользователя: $e');
+      AppLogger.e('Ошибка загрузки пользователя: $e');
     }
   }
 
@@ -36,7 +37,7 @@ class UserNotifier extends StateNotifier<User?> {
       final box = await Hive.openBox('user');
       await box.put('current_user', user.toJson());
     } catch (e) {
-      print('Ошибка сохранения пользователя: $e');
+      AppLogger.e('Ошибка сохранения пользователя: $e');
     }
   }
 
@@ -46,13 +47,14 @@ class UserNotifier extends StateNotifier<User?> {
       final box = await Hive.openBox('user');
       await box.delete('current_user');
     } catch (e) {
-      print('Ошибка при выходе: $e');
+      AppLogger.e('Ошибка при выходе: $e');
     }
   }
 }
 
 // Current chat session provider
-final currentChatSessionProvider = StateNotifierProvider<ChatSessionNotifier, ChatSession?>((ref) {
+final currentChatSessionProvider =
+    StateNotifierProvider<ChatSessionNotifier, ChatSession?>((ref) {
   return ChatSessionNotifier();
 });
 
@@ -82,7 +84,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSession?> {
 }
 
 // App settings provider
-final appSettingsProvider = StateNotifierProvider<AppSettingsNotifier, AppSettings>((ref) {
+final appSettingsProvider =
+    StateNotifierProvider<AppSettingsNotifier, AppSettings>((ref) {
   return AppSettingsNotifier();
 });
 
@@ -95,8 +98,10 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     try {
       final box = await Hive.openBox('settings');
       final themeIndex = box.get('theme', defaultValue: AppTheme.system.index);
-      final notificationsEnabled = box.get('notificationsEnabled', defaultValue: true);
-      final dailyRemindersEnabled = box.get('dailyRemindersEnabled', defaultValue: false);
+      final notificationsEnabled =
+          box.get('notificationsEnabled', defaultValue: true);
+      final dailyRemindersEnabled =
+          box.get('dailyRemindersEnabled', defaultValue: false);
       final reminderHour = box.get('reminderHour', defaultValue: 20);
       final reminderMinute = box.get('reminderMinute', defaultValue: 0);
 
@@ -108,7 +113,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
         reminderMinute: reminderMinute,
       );
     } catch (e) {
-      print('Ошибка загрузки настроек: $e');
+      AppLogger.e('Ошибка загрузки настроек: $e');
     }
   }
 
@@ -122,19 +127,20 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
       await box.put('reminderHour', settings.reminderHour);
       await box.put('reminderMinute', settings.reminderMinute);
     } catch (e) {
-      print('Ошибка сохранения настроек: $e');
+      AppLogger.e('Ошибка сохранения настроек: $e');
     }
   }
 }
 
 // SOS contacts provider
-final sosContactsProvider = FutureProvider.family<List<SosContact>, String>((ref, country) async {
+final sosContactsProvider =
+    FutureProvider.family<List<SosContact>, String>((ref, country) async {
   final apiClient = ref.read(apiClientProvider);
   try {
     final contacts = await apiClient.getSosContacts(country: country);
     return contacts.map((c) => SosContact.fromJson(c)).toList();
   } catch (e) {
-    print('Ошибка загрузки SOS контактов: $e');
+    AppLogger.e('Ошибка загрузки SOS контактов: $e');
     return [];
   }
 });

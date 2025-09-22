@@ -96,7 +96,8 @@ class SosPage extends StatelessWidget {
     );
   }
 
-  Widget _buildContactCard(String title, String phone, String description, IconData icon, Color color) {
+  Widget _buildContactCard(String title, String phone, String description,
+      IconData icon, Color color) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -108,7 +109,8 @@ class SosPage extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(phone, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            Text(phone,
+                style: TextStyle(color: color, fontWeight: FontWeight.bold)),
             Text(description, style: const TextStyle(fontSize: 12)),
           ],
         ),

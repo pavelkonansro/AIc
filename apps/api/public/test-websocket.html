@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    <div id="status">Подключение...</div>
+    <div id="messages"></div>
+    <input type="text" id="messageInput" placeholder="Введите сообщение">
+    <button onclick="sendMessage()">Отправить</button>
+
+    <script>
+        const socket = io('http://localhost:3000/chat');
+        const status = document.getElementById('status');
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+
+        socket.on('connect', () => {
+            status.textContent = 'Подключено';
+            status.style.color = 'green';
+            
+            // Присоединяемся к сессии
+            const sessionId = 'test-session-' + Date.now();
+            socket.emit('join_session', { sessionId: sessionId });
+            addMessage('system', 'Присоединились к сессии: ' + sessionId);
+        });
+
+        socket.on('disconnect', () => {
+            status.textContent = 'Отключено';
+            status.style.color = 'red';
+        });
+
+        socket.on('message', (data) => {
+            console.log('Получено сообщение:', data);
+            addMessage(data.role || 'assistant', data.content || '');
+        });
+
+        socket.on('error', (data) => {
+            console.error('Ошибка:', data);
+            addMessage('error', 'Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+        });
+
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text) return;
+
+            const sessionId = 'test-session-' + Date.now();
+            const messageData = {
+                sessionId: sessionId,
+                text: text
+            };
+
+            console.log('Отправляем:', messageData);
+            socket.emit('chat:message', messageData);
+            addMessage('user', text);
+            messageInput.value = '';
+        }
+
+        function addMessage(role, content) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${role}:</strong> ${content}`;
+            div.style.margin = '5px 0';
+            div.style.padding = '5px';
+            div.style.border = '1px solid #ccc';
+            messages.appendChild(div);
+        }
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

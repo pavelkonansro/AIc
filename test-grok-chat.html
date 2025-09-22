@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIc - Тестирование Grok</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .chat-container {
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            background: #f8f9fa;
+        }
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 12px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        .message.user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        .message.assistant {
+            background: #e9ecef;
+            color: #333;
+            margin-right: auto;
+        }
+        .message.system {
+            background: #fff3cd;
+            color: #856404;
+            text-align: center;
+            font-style: italic;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 24px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #218838;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .info h3 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+        .model-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AIc - Тестирование Grok AI</h1>
+
+        <div id="status" class="status disconnected">Подключение...</div>
+
+        <div class="info">
+            <h3>ℹ️ Информация о системе</h3>
+            <p><strong>API сервер:</strong> http://localhost:3000</p>
+            <p><strong>WebSocket:</strong> ws://localhost:3000/chat</p>
+            <p><strong>База данных:</strong> PostgreSQL + Redis (Docker)</p>
+        </div>
+
+        <div class="chat-container">
+            <div id="messages" class="messages"></div>
+
+            <div class="input-container">
+                <input type="text" id="messageInput" placeholder="Введите сообщение для Grok...">
+                <button onclick="sendMessage()" id="sendButton">Отправить</button>
+            </div>
+        </div>
+
+        <div class="info">
+            <h3>🎯 Тестовые сообщения</h3>
+            <p>Попробуйте отправить:</p>
+            <ul>
+                <li>"Привет! Расскажи о себе"</li>
+                <li>"Какой сегодня день?"</li>
+                <li>"Помоги с домашним заданием по математике"</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000/chat');
+        const status = document.getElementById('status');
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        let currentSessionId = null;
+
+        socket.on('connect', () => {
+            status.textContent = '✅ Подключено к серверу';
+            status.className = 'status connected';
+
+            // Создаем новую сессию
+            currentSessionId = 'test-session-' + Date.now();
+            socket.emit('join_session', { sessionId: currentSessionId });
+            addMessage('system', `Присоединились к сессии чата`);
+        });
+
+        socket.on('disconnect', () => {
+            status.textContent = '❌ Отключено от сервера';
+            status.className = 'status disconnected';
+            sendButton.disabled = true;
+        });
+
+        socket.on('joined_session', (data) => {
+            addMessage('system', `Сессия создана: ${data.sessionId}`);
+            sendButton.disabled = false;
+        });
+
+        socket.on('message', (data) => {
+            const role = data.role || 'unknown';
+            let content = data.content || '';
+
+            // Добавляем информацию о модели и токенах
+            if (data.model || data.provider || data.usage) {
+                content += '\n\n';
+                if (data.model) content += `🤖 Модель: ${data.model}\n`;
+                if (data.provider) content += `🏢 Провайдер: ${data.provider}\n`;
+                if (data.usage) {
+                    content += `📊 Токены: ${data.usage.total_tokens || 'N/A'}`;
+                    if (data.usage.prompt_tokens) content += ` (промпт: ${data.usage.prompt_tokens})`;
+                    if (data.usage.completion_tokens) content += ` (ответ: ${data.usage.completion_tokens})`;
+                }
+            }
+
+            addMessage(role, content);
+        });
+
+        socket.on('typing', (data) => {
+            if (data.isTyping) {
+                addMessage('system', '✍️ Grok печатает...');
+            }
+        });
+
+        socket.on('error', (data) => {
+            addMessage('system', `❌ Ошибка: ${data.message || 'Неизвестная ошибка'}`);
+        });
+
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !currentSessionId) return;
+
+            addMessage('user', text);
+
+            socket.emit('chat:message', {
+                sessionId: currentSessionId,
+                text: text
+            });
+
+            messageInput.value = '';
+            sendButton.disabled = true;
+        }
+
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            // Форматируем контент с переносами строк
+            const formattedContent = content.replace(/\n/g, '<br>');
+
+            messageDiv.innerHTML = `<strong>${getRoleEmoji(role)} ${role}:</strong><br>${formattedContent}`;
+
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function getRoleEmoji(role) {
+            switch(role) {
+                case 'user': return '👤';
+                case 'assistant': return '🤖';
+                case 'system': return 'ℹ️';
+                default: return '❓';
+            }
+        }
+
+        // Отправка по Enter
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !sendButton.disabled) {
+                sendMessage();
+            }
+        });
+
+        // Включаем кнопку отправки когда есть текст
+        messageInput.addEventListener('input', () => {
+            sendButton.disabled = !messageInput.value.trim() || !socket.connected;
+        });
+    </script>
+</body>
+</html>

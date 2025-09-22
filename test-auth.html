@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AIc Auth Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 400px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐶 AIc Auth Test</h1>
+        
+        <div class="form-group">
+            <label for="nick">Имя:</label>
+            <input type="text" id="nick" placeholder="Введите ваше имя">
+        </div>
+        
+        <div class="form-group">
+            <label for="age">Возраст:</label>
+            <select id="age">
+                <option value="9-12">9-12 лет</option>
+                <option value="13-15" selected>13-15 лет</option>
+                <option value="16-18">16-18 лет</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="country">Страна:</label>
+            <select id="country">
+                <option value="CZ">Чехия</option>
+                <option value="DE">Германия</option>
+                <option value="US" selected>США</option>
+            </select>
+        </div>
+        
+        <button id="startBtn" onclick="startChat()">Начать общение</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function startChat() {
+            const nick = document.getElementById('nick').value.trim();
+            const age = document.getElementById('age').value;
+            const country = document.getElementById('country').value;
+            const resultDiv = document.getElementById('result');
+            const startBtn = document.getElementById('startBtn');
+            
+            if (!nick) {
+                showResult('Пожалуйста, введите свое имя', 'error');
+                return;
+            }
+            
+            startBtn.disabled = true;
+            startBtn.textContent = 'Создаем пользователя...';
+            
+            try {
+                // Создаем пользователя
+                const userResponse = await fetch('http://localhost:3001/auth/guest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nick: nick,
+                        ageGroup: age,
+                        locale: getLocaleFromCountry(country)
+                    })
+                });
+                
+                if (!userResponse.ok) {
+                    throw new Error(`Ошибка создания пользователя: ${userResponse.status}`);
+                }
+                
+                const userData = await userResponse.json();
+                const userId = userData.user.id;
+                
+                showResult(`✅ Пользователь создан: ${userData.user.nick} (${userData.user.ageGroup})`, 'success');
+                
+                startBtn.textContent = 'Создаем сессию...';
+                
+                // Создаем чат сессию
+                const sessionResponse = await fetch('http://localhost:3001/chat/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userId })
+                });
+                
+                if (!sessionResponse.ok) {
+                    throw new Error(`Ошибка создания сессии: ${sessionResponse.status}`);
+                }
+                
+                const sessionData = await sessionResponse.json();
+                
+                showResult(`✅ Сессия создана: ${sessionData.sessionId}`, 'success');
+                showResult(`🎉 Готово! Теперь можно перейти к чату: <a href="http://localhost:8080/chat">Открыть чат</a>`, 'success');
+                
+                startBtn.textContent = 'Готово!';
+                
+            } catch (error) {
+                showResult(`❌ Ошибка: ${error.message}`, 'error');
+                startBtn.disabled = false;
+                startBtn.textContent = 'Начать общение';
+            }
+        }
+        
+        function getLocaleFromCountry(country) {
+            switch (country) {
+                case 'CZ': return 'cs-CZ';
+                case 'DE': return 'de-DE';
+                case 'US': return 'en-US';
+                default: return 'en-US';
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = message;
+            resultDiv.className = 'result ' + type;
+        }
+    </script>
+</body>
+</html>
