@@ -14,7 +14,7 @@ export class SosService {
       },
       orderBy: [
         { priority: 'desc' },
-        { name: 'asc' },
+        { serviceType: 'asc' },
       ],
     });
 
@@ -23,8 +23,8 @@ export class SosService {
       country: contact.country,
       locale: contact.locale,
       type: contact.ctype,
-      name: contact.name,
-      phone: contact.phone,
+      name: contact.serviceType,
+      phone: contact.phoneHash,
       url: contact.url,
       hours: contact.hours,
       priority: contact.priority,
@@ -92,7 +92,9 @@ export class SosService {
     try {
       await this.prisma.safetyLog.create({
         data: {
-          content: text,
+          contentHash: Buffer.from(text).toString('base64').substring(0, 64),
+          riskCategory: 'crisis',
+          severityLevel: confidence > 0.7 ? 'critical' : 'high',
           flag: 'crisis_detected',
           reason: `Keywords detected: ${keywords.join(', ')}`,
           action: confidence > 0.7 ? 'escalate' : 'warning',
@@ -119,11 +121,13 @@ export class SosService {
         country: data.country.toUpperCase(),
         locale: data.locale,
         ctype: data.type,
-        name: data.name,
-        phone: data.phone,
+        serviceType: data.name,
+        officialId: data.name.replace(/\s+/g, '_').toLowerCase(),
+        phoneHash: data.phone ? Buffer.from(data.phone).toString('base64') : null,
         url: data.url,
         hours: data.hours,
         priority: data.priority || 0,
+        isVerified: true,
       },
     });
   }

@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 
 class ApiClient {
   late final Dio _dio;
-  static const String baseUrl = 'http://localhost:3000';
+  static const String baseUrl = 'http://192.168.68.65:3000';
 
   ApiClient() {
     _dio = Dio(BaseOptions(

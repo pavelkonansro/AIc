@@ -2,11 +2,10 @@ import { Controller, Get, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { AiService } from './ai/ai.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly aiService: AiService) {}
+  constructor() {}
 
   @Get()
   getDashboard(@Res() res: Response) {
@@ -67,19 +66,11 @@ export class AppController {
 
   @Get('health')
   async getHealthCheck() {
-    const lmStudioHealth = await this.aiService.checkLMStudioHealth();
-
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
       services: {
         api: 'healthy',
-        lmStudio: {
-          status: lmStudioHealth.isHealthy ? 'healthy' : 'unhealthy',
-          error: lmStudioHealth.error,
-          models: lmStudioHealth.models,
-          baseUrl: lmStudioHealth.baseUrl
-        },
         database: 'healthy', // TODO: Add DB health check
         redis: 'healthy' // TODO: Add Redis health check
       }

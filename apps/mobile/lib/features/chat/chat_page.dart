@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
+import '../../components/navigation/navigation.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -41,7 +42,7 @@ class _ChatPageState extends State<ChatPage> {
 
       debugPrint('🌐 Подключаемся к WebSocket...');
       _socket = socket_io.io(
-          'http://localhost:3000/chat',
+          'http://192.168.68.65:3000/chat',
           socket_io.OptionBuilder()
               .setTransports(['websocket'])
               .enableAutoConnect()
@@ -131,32 +132,31 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Чат с AIc'),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: Row(
-              children: [
-                Icon(
-                  _isConnected ? Icons.wifi : Icons.wifi_off,
+    return AicScaffold(
+      title: 'Чат с AIc',
+      appBarActions: [
+        Container(
+          margin: const EdgeInsets.only(right: 16),
+          child: Row(
+            children: [
+              Icon(
+                _isConnected ? Icons.wifi : Icons.wifi_off,
+                color: _isConnected ? Colors.green : Colors.red,
+                size: 20,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _isConnected ? 'Подключено' : 'Отключено',
+                style: TextStyle(
                   color: _isConnected ? Colors.green : Colors.red,
-                  size: 20,
+                  fontSize: 12,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  _isConnected ? 'Подключено' : 'Отключено',
-                  style: TextStyle(
-                    color: _isConnected ? Colors.green : Colors.red,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
+      showBottomNavigation: false,
       body: Column(
         children: [
           Expanded(

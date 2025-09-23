@@ -24,63 +24,14 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
   String? _sessionId;
   bool _isConnected = false;
   bool _isLoading = false;
-  bool _showTopics = true;
-  Map<String, dynamic>? _selectedTopic;
   
   // Отладочная информация
   String _currentModel = 'Загрузка...';
   int _totalTokens = 0;
-  int _promptTokens = 0;
-  int _completionTokens = 0;
   bool _debugMode = true; // Включить для отладки
 
-  bool get _hasSelectedTopic => _selectedTopic != null;
+  bool get _hasSelectedTopic => widget.initialMessage != null;
   ThemeData? _theme;
-
-  final List<Map<String, dynamic>> _topics = [
-    {
-      'title': 'Настроение',
-      'icon': Icons.mood,
-      'color': Colors.orange,
-      'message':
-          'Как ты чувствуешь себя сегодня? Давай вместе поймём, что радует, а что тревожит.'
-    },
-    {
-      'title': 'Школа',
-      'icon': Icons.school,
-      'color': Colors.blue,
-      'message':
-          'Как проходит школа в последнее время? Есть ли в учёбе или общении то, о чём хочется поговорить?'
-    },
-    {
-      'title': 'Дом',
-      'icon': Icons.home,
-      'color': Colors.green,
-      'message':
-          'Как сейчас обстоят дела дома? Может, хочешь разобраться вместе, что помогает или мешает чувству безопасности?'
-    },
-    {
-      'title': 'Друзья',
-      'icon': Icons.people,
-      'color': Colors.purple,
-      'message':
-          'Что происходит в дружбе и общении? Давай обсудим моменты, которые вдохновляют или вызывают вопросы.'
-    },
-    {
-      'title': 'Выговориться',
-      'icon': Icons.chat_bubble,
-      'color': Colors.pink,
-      'message':
-          'Хочешь просто выговориться? Я рядом, чтобы внимательно слушать и помогать разложить мысли по полочкам.'
-    },
-    {
-      'title': 'Найти решение',
-      'icon': Icons.lightbulb,
-      'color': Colors.amber,
-      'message':
-          'Есть ситуация, в которой ищешь выход? Можем вместе разобрать варианты и подобрать следующий шаг.'
-    },
-  ];
 
   @override
   void initState() {
@@ -97,14 +48,6 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
     // Если есть initialMessage, сразу показываем его в UI
     if (widget.initialMessage != null && widget.initialMessage!.trim().isNotEmpty) {
       _messages.add({'role': 'user', 'content': widget.initialMessage!});
-      // Устанавливаем выбранную тему, чтобы разблокировать ввод
-      _selectedTopic = {
-        'title': 'Выбранная тема',
-        'message': widget.initialMessage!,
-      };
-      setState(() {
-        _showTopics = false;
-      });
     }
 
     _initSocket();
@@ -141,7 +84,7 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
 
       debugPrint('🌐 Подключаемся к WebSocket...');
       _socket = socket_io.io(
-          'http://localhost:3000/chat',
+          'http://192.168.68.65:3000/chat',
           socket_io.OptionBuilder()
               .setTransports(['websocket'])
               .enableAutoConnect()
@@ -188,8 +131,6 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
           
           setState(() {
             _currentModel = model.isNotEmpty ? model : _currentModel;
-            _promptTokens += promptTokens as int;
-            _completionTokens += completionTokens as int; 
             _totalTokens += totalTokens as int;
           });
           
@@ -224,33 +165,11 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
     if (text.isEmpty ||
         !_isConnected ||
         _isLoading ||
-        _sessionId == null ||
-        !_hasSelectedTopic) {
+        _sessionId == null) {
       return;
     }
 
     _sendMessage(text);
-  }
-
-  void _selectTopic(Map<String, dynamic> topic) {
-    final message = topic['message'] as String? ?? '';
-    final title = topic['title'] as String? ?? 'выбранная тема';
-
-    setState(() {
-      _selectedTopic = topic;
-      _showTopics = false;
-    });
-
-    _addMessage('system',
-        '📌 Мы обсудим "$title". Поделись, что в этой теме самое важное сейчас.');
-
-    if (!_isConnected || _sessionId == null || _isLoading) {
-      return;
-    }
-
-    if (message.isNotEmpty) {
-      _sendMessage(message);
-    }
   }
 
   void _sendMessage(String text) {
@@ -379,6 +298,25 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
             tooltip: 'Мотивация',
           ),
           IconButton(
+            icon: const Icon(Icons.spa_rounded),
+            onPressed: () {
+              // TODO: Добавить навигацию к медитации
+            },
+            tooltip: 'Медитация',
+          ),
+          IconButton(
+            icon: const Icon(Icons.support_agent_rounded),
+            onPressed: () {
+              // TODO: Добавить навигацию к поддержке  
+            },
+            tooltip: 'Поддержка',
+          ),
+          IconButton(
+            icon: Icon(_debugMode ? Icons.bug_report : Icons.bug_report_outlined),
+            onPressed: () => setState(() => _debugMode = !_debugMode),
+            tooltip: 'Отладка',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout_rounded),
             onPressed: _logout,
             tooltip: 'Выйти',
@@ -396,50 +334,67 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
         child: Column(
           children: [
             const SizedBox(height: kToolbarHeight + 20),
-            // Отладочная панель
+            // Компактная отладочная панель
             if (_debugMode) ...[
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black87,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '🤖 Модель: $_currentModel',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '📊 Токены в сессии: $_totalTokens (prompt: $_promptTokens, completion: $_completionTokens)',
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '🔌 Соединение: ${_isConnected ? "✅" : "❌"} | Загрузка: ${_isLoading ? "⏳" : "💤"}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          '🔧 Режим отладки',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
-                        ),
-                        GestureDetector(
-                          onTap: () => setState(() => _debugMode = false),
-                          child: const Icon(
-                            Icons.close,
-                            color: Colors.white54,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          // Модель
+                          Icon(Icons.psychology_outlined, color: Colors.green, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            _currentModel.split('/').last.replaceAll(':', '').substring(0, 8),
+                            style: const TextStyle(color: Colors.white, fontSize: 11),
+                          ),
+                          const SizedBox(width: 12),
+                          // Токены  
+                          Icon(Icons.analytics_outlined, color: Colors.blue, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_totalTokens',
+                            style: const TextStyle(color: Colors.white, fontSize: 11),
+                          ),
+                          const SizedBox(width: 12),
+                          // Соединение
+                          Icon(
+                            _isConnected ? Icons.wifi : Icons.wifi_off,
+                            color: _isConnected ? Colors.green : Colors.red,
                             size: 16,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          // Загрузка
+                          if (_isLoading) 
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                              ),
+                            )
+                          else
+                            Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _debugMode = false),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white54,
+                        size: 16,
+                      ),
                     ),
                   ],
                 ),
@@ -450,40 +405,26 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
               child: _buildHeroCard(context),
             ),
             const SizedBox(height: 16),
-            if (!_hasSelectedTopic) ...[
-              Expanded(
-                child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: _buildTopicsSection(primary: true),
+            // Убрали блок выбора тем - просто показываем чат всегда
+            const SizedBox(height: 12),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 18,
+                      offset: const Offset(0, 12),
+                    )
+                  ],
                 ),
+                child: _buildMessagesList(),
               ),
-            ] else ...[
-              if (_showTopics)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _buildTopicsSection(primary: false),
-                ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 12),
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 18,
-                        offset: const Offset(0, 12),
-                      )
-                    ],
-                  ),
-                  child: _buildMessagesList(),
-                ),
-              ),
-            ],
+            ),
             _buildComposer(),
           ],
         ),
@@ -493,8 +434,7 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
 
   Widget _buildHeroCard(BuildContext context) {
     final hasTopic = _hasSelectedTopic;
-    final topicTitle =
-        hasTopic ? (_selectedTopic?['title'] as String? ?? '') : '';
+    final topicTitle = hasTopic ? 'Тема для обсуждения' : '';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -540,9 +480,8 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
               children: [
                 _SelectedTopicChip(
                   label: topicTitle,
-                  color: (_selectedTopic?['color'] as Color?) ??
-                      Theme.of(context).colorScheme.primary,
-                  onChange: () => setState(() => _showTopics = true),
+                  color: Theme.of(context).colorScheme.primary,
+                  onChange: () {}, // Убираем логику
                 ),
               ],
             ),
@@ -569,62 +508,6 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
               ),
             ],
           )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopicsSection({required bool primary}) {
-    final title = primary ? 'С чего начнем разговор?' : 'Темы для старта';
-    final subtitle = primary
-        ? 'Выбери направление, которое хочется обсудить. Мы сможем углубиться и найти следующую опору.'
-        : 'Хочешь переключиться? Просто выбери другую тему — я подстроюсь.';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              if (!primary)
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => setState(() => _showTopics = false),
-                  tooltip: 'Скрыть темы',
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Colors.black54, height: 1.35),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _topics.map((topic) => _buildTopicButton(topic)).toList(),
-          ),
         ],
       ),
     );
@@ -661,7 +544,7 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
   }
 
   Widget _buildComposer() {
-    final enabled = _isConnected && !_isLoading && _hasSelectedTopic;
+    final enabled = _isConnected && !_isLoading;
 
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -678,93 +561,28 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
             ),
           ],
         ),
-        child: _hasSelectedTopic
-            ? Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.topic_rounded),
-                    tooltip: 'Сменить тему',
-                    onPressed: () => setState(() => _showTopics = true),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      enabled: enabled,
-                      minLines: 1,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: enabled
-                            ? (_isLoading ? 'AIc печатает...' : 'Напиши AIc...')
-                            : 'Подключаемся...',
-                        border: InputBorder.none,
-                      ),
-                      onSubmitted: enabled ? (_) => _send() : null,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: enabled ? _send : null,
-                    icon: const Icon(Icons.send_rounded),
-                    label: const Text('Отправить'),
-                  ),
-                ],
-              )
-            : Row(
-                children: [
-                  const Icon(Icons.topic_outlined, color: Color(0xFF6366F1)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Выбери тему, чтобы начать разговор — я помогу разобраться вместе.',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: Colors.black54),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: () => setState(() => _showTopics = true),
-                    child: const Text('Выбрать'),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildTopicButton(Map<String, dynamic> topic) {
-    return InkWell(
-      onTap: () => _selectTopic(topic),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: (topic['color'] as Color).withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: (topic['color'] as Color).withValues(alpha: 0.25),
-            width: 1,
-          ),
-        ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              topic['icon'],
-              size: 18,
-              color: topic['color'],
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                enabled: enabled,
+                minLines: 1,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: enabled
+                      ? (_isLoading ? 'AIc печатает...' : 'Напиши AIc...')
+                      : 'Подключаемся...',
+                  border: InputBorder.none,
+                ),
+                onSubmitted: enabled ? (_) => _send() : null,
+              ),
             ),
             const SizedBox(width: 8),
-            Text(
-              topic['title'],
-              style: TextStyle(
-                color: Color.lerp(topic['color'] as Color, Colors.black, 0.2) ??
-                    topic['color'] as Color,
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-              ),
+            FilledButton.icon(
+              onPressed: enabled ? _send : null,
+              icon: const Icon(Icons.send_rounded),
+              label: const Text('Отправить'),
             ),
           ],
         ),
@@ -773,6 +591,7 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
   }
 }
 
+// Helper widgets
 class _SelectedTopicChip extends StatelessWidget {
   const _SelectedTopicChip({
     required this.label,

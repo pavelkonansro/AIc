@@ -11,7 +11,6 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { TestModule } from './test/test.module';
 import { AiModule } from './ai/ai.module';
 import { PrismaService } from './prisma/prisma.service';
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),

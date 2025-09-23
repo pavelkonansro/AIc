@@ -30,17 +30,18 @@ export class TestController {
     try {
       const user = await this.prisma.user.create({
         data: {
-          nick: `TestUser_${Date.now()}`,
-          ageGroup: '13-15',
+          role: 'child',
           locale: 'cs-CZ',
-          country: 'CZ',
-          consentFlags: 'all',
+          birthYear: 2010, // возраст 13-15 лет
+          ageGroup: 'teen',
+          consentVersion: 1,
         },
       });
 
       return {
         userId: user.id,
-        nick: user.nick,
+        role: user.role,
+        birthYear: user.birthYear,
         ageGroup: user.ageGroup,
       };
     } catch (error) {
@@ -79,9 +80,7 @@ export class TestController {
 
       const deletedUsers = await this.prisma.user.deleteMany({
         where: {
-          nick: {
-            startsWith: 'TestUser_',
-          },
+          role: 'child',
           createdAt: {
             lt: oneHourAgo,
           },

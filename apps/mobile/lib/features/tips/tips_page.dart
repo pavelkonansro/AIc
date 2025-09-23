@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../components/navigation/navigation.dart';
 
 class TipsPage extends StatefulWidget {
   const TipsPage({super.key});
@@ -55,10 +56,9 @@ class _TipsPageState extends State<TipsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Советы'),
-      ),
+    return AicMainScaffold(
+      title: 'Советы',
+      currentRoute: '/tips',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [

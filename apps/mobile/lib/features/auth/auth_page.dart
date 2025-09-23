@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:aic_mobile/services/notifications.dart';
 import 'package:aic_mobile/services/logger.dart';
+import 'package:aic_mobile/config/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../components/navigation/navigation.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -45,7 +47,11 @@ class _AuthPageState extends State<AuthPage> {
     }
 
     if (userId != null) {
-      await NotificationService.setUserContext(userId);
+      try {
+        await NotificationService.setUserContext(userId);
+      } catch (error) {
+        debugPrint('Notification service temporarily disabled: $error');
+      }
     }
   }
 
@@ -99,7 +105,7 @@ class _AuthPageState extends State<AuthPage> {
 
       // Создаем пользователя через API
       final response = await http.post(
-        Uri.parse('http://localhost:3000/auth/guest'),
+        Uri.parse('${ApiConfig.baseUrl}/auth/guest'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'nick': _nickController.text.trim(),
@@ -126,13 +132,17 @@ class _AuthPageState extends State<AuthPage> {
         await prefs.setString('user_age', _selectedAge);
         await prefs.setString('user_country', _selectedCountry);
 
-        await NotificationService.setUserContext(userId);
+        try {
+          await NotificationService.setUserContext(userId);
+        } catch (error) {
+          debugPrint('Notification service temporarily disabled: $error');
+        }
 
         AppLogger.i('Создаем чат сессию...');
 
         // Создаем чат сессию
         final sessionResponse = await http.post(
-          Uri.parse('http://localhost:3000/chat/session'),
+          Uri.parse('${ApiConfig.baseUrl}/chat/session'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'userId': userId}),
         );
@@ -188,7 +198,10 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AicScaffold(
+      title: 'AIc - Вход',
+      showBottomNavigation: false,
+      showBackButton: false,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

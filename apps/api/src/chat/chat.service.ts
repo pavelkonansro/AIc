@@ -119,13 +119,7 @@ export class ChatService {
     const session = await this.prisma.chatSession.findUnique({
       where: { id: sessionId },
       include: {
-        user: {
-          select: {
-            id: true,
-            nick: true,
-            ageGroup: true,
-          },
-        },
+        user: true,
       },
     });
 
@@ -201,7 +195,9 @@ export class ChatService {
     try {
       // Получаем сессию с информацией о пользователе
       session = await this.getSession(sessionId);
-      const ageGroup = session.user.ageGroup as 'child' | 'teen' | 'young_adult';
+
+      // Получаем возрастную группу из профиля или вычисляем на основе года рождения
+      const ageGroup = (session.user as any).ageGroup || this.calculateAgeGroupFromYear((session.user as any).birthYear) as 'child' | 'teen' | 'young_adult';
 
       // Проверяем безопасность сообщения
       const safetyCheck = SafetyChecker.detectCrisis(userMessage);
@@ -480,7 +476,9 @@ export class ChatService {
       await this.prisma.safetyLog.create({
         data: {
           sessionId,
-          content,
+          contentHash: Buffer.from(content).toString('base64').substring(0, 64),
+          riskCategory: flag === 'crisis_detected' ? 'crisis' : 'inappropriate',
+          severityLevel: flag === 'crisis_detected' ? 'high' : 'low',
           flag,
           reason: `Automated detection: ${flag}`,
           action: flag === 'crisis_detected' ? 'warning' : 'none',
@@ -489,5 +487,16 @@ export class ChatService {
     } catch (error) {
       console.error('Ошибка записи лога безопасности:', error);
     }
+  }
+
+  private calculateAgeGroupFromYear(birthYear: number | null): 'child' | 'teen' | 'young_adult' {
+    if (!birthYear) return 'teen'; // default
+
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - birthYear;
+
+    if (age <= 12) return 'child';
+    if (age <= 15) return 'teen';
+    return 'young_adult';
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'situations_page.dart';
-import '../../services/logger.dart';
+import '../../components/navigation/navigation.dart';
 
 class CategoryDetailPage extends StatelessWidget {
   final SituationCategory category;
@@ -13,45 +13,30 @@ class CategoryDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AicScaffold(
+      title: category.title,
+      appBarBackgroundColor: Color(int.parse(category.color.replaceFirst('#', '0xFF'))),
+      showBottomNavigation: false,
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            backgroundColor: Color(int.parse(category.color.replaceFirst('#', '0xFF'))),
-            foregroundColor: Colors.white,
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                category.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 3,
-                      color: Colors.black26,
-                    ),
+          SliverToBoxAdapter(
+            child: Container(
+              height: 200,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(int.parse(category.color.replaceFirst('#', '0xFF'))),
+                    Color(int.parse(category.color.replaceFirst('#', '0xFF'))).withValues(alpha: 0.8),
                   ],
                 ),
               ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(int.parse(category.color.replaceFirst('#', '0xFF'))),
-                      Color(int.parse(category.color.replaceFirst('#', '0xFF'))).withValues(alpha: 0.8),
-                    ],
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    _getIconData(category.icon),
-                    size: 80,
-                    color: Colors.white.withValues(alpha: 0.3),
-                  ),
+              child: Center(
+                child: Icon(
+                  _getIconData(category.icon),
+                  size: 80,
+                  color: Colors.white.withValues(alpha: 0.3),
                 ),
               ),
             ),
@@ -74,7 +59,7 @@ class CategoryDetailPage extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
-                  ),
+                        ),
                   const SizedBox(height: 16),
                 ],
               ),

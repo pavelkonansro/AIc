@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1091340958380",
+    "project_id": "aic-app-a8176",
+    "storage_bucket": "aic-app-a8176.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1091340958380:android:8840c8785a8f69f5b57d09",
+        "android_client_info": {
+          "package_name": "com.example.aic_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbr9wu5_AkMvHc3zZnxeMUw_jQGB5Tn64"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../components/navigation/navigation.dart';
 
 class SupportPage extends StatelessWidget {
   const SupportPage({super.key});
@@ -32,10 +33,9 @@ class SupportPage extends StatelessWidget {
       ),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Поддержка'),
-      ),
+    return AicMainScaffold(
+      title: 'Поддержка',
+      currentRoute: '/support',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [

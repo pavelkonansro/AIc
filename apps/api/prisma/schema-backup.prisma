@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  nick         String
+  ageGroup     String        // 9-12 / 13-15 / 16-18
+  locale       String        // cs-CZ / de-DE / en-US
+  country      String
+  consentFlags String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  profile      Profile?
+  sessions     ChatSession[]
+  purchases    Purchase[]
+  devices      NotificationDevice[]
+
+  @@map("users")
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  interests String[]
+  issues    String[]
+  settings  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  userId    String
+  startedAt DateTime      @default(now())
+  endedAt   DateTime?
+  status    String        @default("active") // active, ended, paused
+  messages  ChatMessage[]
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id         String      @id @default(cuid())
+  sessionId  String
+  role       String      // user/assistant/system
+  content    String
+  safetyFlag String?     // safe/warning/blocked
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+model Article {
+  id          String   @id @default(cuid())
+  locale      String
+  topic       String
+  title       String
+  body        String
+  version     Int      @default(1)
+  isPublished Boolean  @default(false)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([locale, topic])
+  @@index([isPublished])
+  @@map("articles")
+}
+
+model SosContact {
+  id        String   @id @default(cuid())
+  country   String
+  locale    String
+  ctype     String   // emergency, mental-health, abuse, etc.
+  name      String
+  phone     String?
+  url       String?
+  hours     String?
+  priority  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([country, locale])
+  @@index([isActive])
+  @@map("sos_contacts")
+}
+
+model Purchase {
+  id              String    @id @default(cuid())
+  userId          String
+  platform        String    // ios/android/web
+  productId       String
+  transactionId   String?   @unique
+  status          String    // active/canceled/expired/pending
+  purchaseDate    DateTime  @default(now())
+  expiryDate      DateTime?
+  renewedAt       DateTime?
+  revenuecatId    String?
+  originalJson    Json?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("purchases")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?  // null for broadcast notifications
+  type      String   // reminder, update, emergency, etc.
+  title     String
+  body      String
+  data      Json?
+  isSent    Boolean  @default(false)
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+  deliveries NotificationDelivery[]
+
+  @@index([userId, isSent])
+  @@index([type])
+  @@map("notifications")
+}
+
+model SafetyLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String?
+  content   String
+  flag      String   // safe/warning/blocked
+  reason    String?
+  action    String?  // none/warning/block/escalate
+  createdAt DateTime @default(now())
+
+  @@index([flag])
+  @@index([createdAt])
+  @@map("safety_logs")
+}
+
+model NotificationDevice {
+  id          String   @id @default(cuid())
+  userId      String?
+  platform    String   // ios/android/web
+  deviceToken String   @unique
+  appVersion  String?
+  locale      String?
+  metadata    Json?
+  isActive    Boolean  @default(true)
+  disabledAt  DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deliveries  NotificationDelivery[]
+
+  @@index([userId, isActive])
+  @@map("notification_devices")
+}
+
+model NotificationDelivery {
+  id             String      @id @default(cuid())
+  notificationId String
+  deviceId       String
+  status         String      @default("pending") // pending/sent/failed
+  error          String?
+  sentAt         DateTime?
+  createdAt      DateTime    @default(now())
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  device         NotificationDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([deviceId])
+  @@map("notification_deliveries")
+}

@@ -3,67 +3,200 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
+// ===== CORE USER SYSTEM =====
+
 model User {
-  id           String        @id @default(cuid())
-  nick         String
-  ageGroup     String        // 9-12 / 13-15 / 16-18
-  locale       String        // cs-CZ / de-DE / en-US
-  country      String
-  consentFlags String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  profile      Profile?
-  sessions     ChatSession[]
-  purchases    Purchase[]
-  devices      NotificationDevice[]
+  id             String   @id @default(uuid())
+  role           String   @default("child") // child, guardian, admin
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tz             String?
+  locale         String   @default("ru")
+  birthYear      Int?     // GDPR-friendly: только год для возрастных групп (9-12, 13-15, 16-18)
+  ageGroup       String?  // computed: child, teen, young_adult
+  consentVersion Int      @default(1)
+
+  // Data retention
+  dataRetentionUntil DateTime? // автоудаление неактивных аккаунтов через N дней
+
+  // Relations
+  childLinks       GuardianLink[] @relation("ChildUser")
+  guardianLinks    GuardianLink[] @relation("GuardianUser")
+  consents         Consent[]
+  progress         Progress[]
+  sessions         Session[]
+  feedback         Feedback[]
+  pushTokens       PushToken[]
+  chatSessions     ChatSession[]
+  safetyLogs       SafetyLog[]
+  purchases        Purchase[]
+
+  // GDPR compliance
+  auditLogs        DataProcessingAudit[]
+  dataRequests     UserDataRequest[]
 
   @@map("users")
 }
 
-model Profile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  interests String[]
-  issues    String[]
-  settings  Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// Родитель ↔ ребёнок (многие-ко-многим)
+model GuardianLink {
+  id          BigInt   @id @default(autoincrement())
+  guardianId  String
+  childId     String
+  createdAt   DateTime @default(now())
 
-  @@map("profiles")
+  guardian User @relation("GuardianUser", fields: [guardianId], references: [id], onDelete: Cascade)
+  child    User @relation("ChildUser", fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([guardianId, childId])
+  @@map("guardian_links")
 }
 
+// Согласия (минимизируем PII)
+model Consent {
+  id          BigInt   @id @default(autoincrement())
+  userId      String
+  givenAt     DateTime @default(now())
+  consentType String   // tos, privacy, parental
+  version     Int
+  scope       String?  // например: "analytics_basic"
+  meta        Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("consents")
+}
+
+// ===== PROGRESS & SESSIONS =====
+
+// Профиль прогресса (без чувствительных текстов)
+model Progress {
+  id       BigInt   @id @default(autoincrement())
+  userId   String
+  moduleId String   // из CMS/id контента
+  stepKey  String   // ключ шага/сцены
+  state    Json?    // текущее состояние/результаты (минимум данных)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId, stepKey])
+  @@map("progress")
+}
+
+// Сессии взаимодействия (агрегация для аналитики без PII)
+model Session {
+  id         String    @id @default(uuid())
+  userId     String
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  device     String?
+  appVersion String?
+  meta       Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ===== CHAT SYSTEM =====
+
 model ChatSession {
-  id        String        @id @default(cuid())
+  id        String        @id @default(uuid())
   userId    String
   startedAt DateTime      @default(now())
   endedAt   DateTime?
   status    String        @default("active") // active, ended, paused
   messages  ChatMessage[]
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("chat_sessions")
 }
 
 model ChatMessage {
-  id         String      @id @default(cuid())
+  id         String      @id @default(uuid())
   sessionId  String
   role       String      // user/assistant/system
-  content    String
+  content    String      @db.VarChar(2000) // limit content length for privacy
+  contentHash String?    // hash for deduplication instead of storing full text
   safetyFlag String?     // safe/warning/blocked
   metadata   Json?
   createdAt  DateTime    @default(now())
-  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // GDPR compliance: TTL for automatic deletion
+  deleteAfter DateTime?   // messages auto-deleted after 90 days
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("chat_messages")
 }
 
+// ===== SAFETY & FEEDBACK =====
+
+model SafetyLog {
+  id             String   @id @default(uuid())
+  userId         String?
+  sessionId      String?
+
+  // GDPR-friendly: не храним полный контент
+  contentHash    String?     // hash вместо полного содержимого
+  riskCategory   String      // crisis, harassment, inappropriate, etc.
+  severityLevel  String      // low, medium, high, critical
+
+  flag           String      // safe/warning/blocked
+  reason         String?
+  action         String?     // none/warning/block/escalate
+  createdAt      DateTime    @default(now())
+
+  // TTL for automatic deletion after 30 days
+  deleteAfter    DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([flag])
+  @@index([createdAt])
+  @@index([riskCategory])
+  @@map("safety_logs")
+}
+
+// Обратная связь (контролируемый словарь)
+model Feedback {
+  id        BigInt   @id @default(autoincrement())
+  userId    String?
+  createdAt DateTime @default(now())
+  rating    Int?     // 1-5
+  category  String?  // ux, content, bug, other
+  comment   String?  @db.VarChar(2000) // max 2000 chars for privacy
+
+  // TTL for automatic deletion after 90 days
+  deleteAfter DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("feedback")
+}
+
+// ===== CONTENT & CONFIG =====
+
+// Remote config / feature flags
+model RemoteConfig {
+  key         String   @id
+  value       Json
+  description String?
+  updatedAt   DateTime @default(now()) @updatedAt
+  audience    Json?    // правила таргетинга (age, locale, role)
+
+  @@map("remote_config")
+}
+
 model Article {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   locale      String
   topic       String
   title       String
@@ -80,44 +213,49 @@ model Article {
 }
 
 model SosContact {
-  id        String   @id @default(cuid())
-  country   String
-  locale    String
-  ctype     String   // emergency, mental-health, abuse, etc.
-  name      String
-  phone     String?
-  url       String?
-  hours     String?
-  priority  Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  country      String
+  locale       String
+  ctype        String   // emergency, mental-health, abuse, etc.
+
+  // GDPR-friendly: официальные данные, не персональные
+  serviceType  String   // official service type identifier
+  officialId   String   // government/NGO official identifier
+
+  phoneHash    String?  // encrypted/hashed phone for verification
+  url          String?
+  hours        String?
+  priority     Int      @default(0)
+  isActive     Boolean  @default(true)
+  isVerified   Boolean  @default(false) // verified official source
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([country, locale])
   @@index([isActive])
+  @@index([serviceType])
   @@map("sos_contacts")
 }
 
-model Purchase {
-  id              String    @id @default(cuid())
-  userId          String
-  platform        String    // ios/android/web
-  productId       String
-  transactionId   String?   @unique
-  status          String    // active/canceled/expired/pending
-  purchaseDate    DateTime  @default(now())
-  expiryDate      DateTime?
-  renewedAt       DateTime?
-  revenuecatId    String?
-  originalJson    Json?
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+// ===== NOTIFICATIONS & DEVICES =====
 
-  @@index([userId, status])
-  @@map("purchases")
+// Push-токены устройств
+model PushToken {
+  id          BigInt    @id @default(autoincrement())
+  userId      String
+  platform    String    // ios, android
+  token       String
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@map("push_tokens")
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   userId    String?  // null for broadcast notifications
   type      String   // reminder, update, emergency, etc.
   title     String
@@ -126,6 +264,7 @@ model Notification {
   isSent    Boolean  @default(false)
   sentAt    DateTime?
   createdAt DateTime @default(now())
+
   deliveries NotificationDelivery[]
 
   @@index([userId, isSent])
@@ -133,23 +272,8 @@ model Notification {
   @@map("notifications")
 }
 
-model SafetyLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  sessionId String?
-  content   String
-  flag      String   // safe/warning/blocked
-  reason    String?
-  action    String?  // none/warning/block/escalate
-  createdAt DateTime @default(now())
-
-  @@index([flag])
-  @@index([createdAt])
-  @@map("safety_logs")
-}
-
 model NotificationDevice {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   userId      String?
   platform    String   // ios/android/web
   deviceToken String   @unique
@@ -161,25 +285,103 @@ model NotificationDevice {
   lastSeenAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  deliveries  NotificationDelivery[]
+
+  deliveries NotificationDelivery[]
 
   @@index([userId, isActive])
   @@map("notification_devices")
 }
 
 model NotificationDelivery {
-  id             String      @id @default(cuid())
+  id             String      @id @default(uuid())
   notificationId String
   deviceId       String
   status         String      @default("pending") // pending/sent/failed
   error          String?
   sentAt         DateTime?
   createdAt      DateTime    @default(now())
-  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  device         NotificationDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  notification Notification       @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  device       NotificationDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@index([notificationId])
   @@index([deviceId])
   @@map("notification_deliveries")
+}
+
+// ===== PURCHASES =====
+
+model Purchase {
+  id              String    @id @default(uuid())
+  userId          String
+  platform        String    // ios/android/web
+  productId       String
+  transactionId   String?   @unique
+  status          String    // active/canceled/expired/pending
+  purchaseDate    DateTime  @default(now())
+  expiryDate      DateTime?
+  renewedAt       DateTime?
+  revenuecatId    String?
+  originalJson    Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("purchases")
+}
+
+// ===== GDPR COMPLIANCE & AUDIT =====
+
+// Аудит для соответствия GDPR - "право на забвение" и отслеживание доступа к PII
+model DataProcessingAudit {
+  id            String   @id @default(uuid())
+  userId        String?
+  sessionId     String?
+  operation     String   // access, modify, delete, anonymize, export
+  dataType      String   // user_profile, chat_data, safety_logs, etc.
+  legalBasis    String   // consent, legitimate_interest, vital_interest
+  purpose       String   // service_provision, safety_monitoring, etc.
+  processorId   String?  // который процессор обработал данные
+  ipAddress     String?
+  userAgent     String?
+  retentionDays Int?     // планируемый срок хранения
+  createdAt     DateTime @default(now())
+
+  // Для права на забвение
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
+  deletionReason String? // user_request, retention_expired, etc.
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([operation])
+  @@index([createdAt])
+  @@index([isDeleted])
+  @@map("data_processing_audit")
+}
+
+// Запросы пользователей на обработку данных (GDPR Article 15-22)
+model UserDataRequest {
+  id           String   @id @default(uuid())
+  userId       String
+  requestType  String   // access, rectification, erasure, portability, restriction
+  status       String   // pending, processing, completed, rejected
+  reason       String?
+  submittedAt  DateTime @default(now())
+  processedAt  DateTime?
+  completedAt  DateTime?
+  processorId  String?  // ID администратора, обработавшего запрос
+  response     String?  // детали ответа или причина отклонения
+
+  // Для экспорта данных
+  exportUrl    String?  // temporary signed URL for data export
+  expiresAt    DateTime? // когда истекает ссылка на экспорт
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestType])
+  @@map("user_data_requests")
 }

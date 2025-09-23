@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../components/navigation/navigation.dart';
 
 class SosPage extends StatelessWidget {
   const SosPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('SOS Помощь'),
-        backgroundColor: Colors.red.shade400,
-        foregroundColor: Colors.white,
-      ),
+    return AicScaffold(
+      title: 'SOS Помощь',
+      appBarBackgroundColor: Colors.red.shade400,
+      showBottomNavigation: false,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

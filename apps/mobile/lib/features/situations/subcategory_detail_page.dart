@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'situations_page.dart';
 import '../../services/logger.dart';
+import '../../components/navigation/navigation.dart';
 
 class SubcategoryDetailPage extends StatelessWidget {
   final SituationCategory category;
@@ -17,13 +18,10 @@ class SubcategoryDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final categoryColor = Color(int.parse(category.color.replaceFirst('#', '0xFF')));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(subcategory.title),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: categoryColor,
-      ),
+    return AicScaffold(
+      title: subcategory.title,
+      appBarBackgroundColor: categoryColor,
+      showBottomNavigation: false,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

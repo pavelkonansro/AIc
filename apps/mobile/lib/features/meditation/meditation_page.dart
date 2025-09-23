@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../components/navigation/navigation.dart';
 
 class MeditationPage extends StatelessWidget {
   const MeditationPage({super.key});
@@ -36,10 +37,9 @@ class MeditationPage extends StatelessWidget {
       'Сфокусируйся на трёх вещах, которые видишь; двух, которые слышишь; одной, которую чувствуешь.',
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Медитация'),
-      ),
+    return AicMainScaffold(
+      title: 'Медитация',
+      currentRoute: '/meditation',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [

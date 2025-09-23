@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../components/navigation/navigation.dart';
 
 class MotivationPage extends StatelessWidget {
   const MotivationPage({super.key});
@@ -39,11 +40,9 @@ class MotivationPage extends StatelessWidget {
       'Составь мини-план на завтра из двух простых пунктов.',
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Мотивация'),
-        elevation: 0,
-      ),
+    return AicMainScaffold(
+      title: 'Мотивация',
+      currentRoute: '/motivation',
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

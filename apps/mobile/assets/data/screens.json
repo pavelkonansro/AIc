@@ -1,0 +1,83 @@
+{
+  "screens": {
+    "home": {
+      "title": "Главная",
+      "blocks": [
+        {
+          "type": "hero_card",
+          "title": "Привет! 👋",
+          "subtitle": "Как дела сегодня?",
+          "gradient": ["#6366F1", "#8B5CF6"]
+        },
+        {
+          "type": "mood_selector",
+          "title": "Твое настроение",
+          "moods": [
+            {"emoji": "😄", "label": "Отлично", "value": "great"},
+            {"emoji": "😊", "label": "Хорошо", "value": "good"},
+            {"emoji": "😐", "label": "Нормально", "value": "neutral"},
+            {"emoji": "😕", "label": "Плохо", "value": "bad"},
+            {"emoji": "😢", "label": "Ужасно", "value": "terrible"}
+          ]
+        },
+        {
+          "type": "streak_card",
+          "title": "Твоя серия",
+          "subtitle": "Дней подряд с приложением"
+        },
+        {
+          "type": "quick_actions",
+          "title": "Быстрые действия",
+          "actions": [
+            {"icon": "chat", "label": "Чат с AIc", "route": "/chat"},
+            {"icon": "meditation", "label": "Медитация", "route": "/meditation"},
+            {"icon": "tips", "label": "Советы", "route": "/tips"},
+            {"icon": "support", "label": "Поддержка", "route": "/support"}
+          ]
+        }
+      ]
+    },
+    "situations": {
+      "title": "Ситуации",
+      "blocks": [
+        {
+          "type": "category_grid",
+          "categories": [
+            {
+              "id": "school",
+              "title": "Школа",
+              "icon": "school",
+              "color": "#3B82F6",
+              "subcategories": [
+                {"id": "exams", "title": "Экзамены", "description": "Стресс перед тестами"},
+                {"id": "homework", "title": "Домашка", "description": "Много заданий"},
+                {"id": "teachers", "title": "Учителя", "description": "Конфликты с преподавателями"}
+              ]
+            },
+            {
+              "id": "friends",
+              "title": "Друзья",
+              "icon": "people",
+              "color": "#10B981",
+              "subcategories": [
+                {"id": "conflict", "title": "Конфликт", "description": "Ссора с другом"},
+                {"id": "loneliness", "title": "Одиночество", "description": "Нет близких друзей"},
+                {"id": "peer_pressure", "title": "Давление", "description": "Принуждение к плохому"}
+              ]
+            },
+            {
+              "id": "family",
+              "title": "Семья",
+              "icon": "home",
+              "color": "#F59E0B",
+              "subcategories": [
+                {"id": "parents", "title": "Родители", "description": "Непонимание с родителями"},
+                {"id": "siblings", "title": "Братья/сестры", "description": "Проблемы с родственниками"}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

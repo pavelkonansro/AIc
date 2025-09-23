@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule } from './app.module';
+import { AppModule } from './app.minimal.module'; // Используем минимальный модуль
 import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -49,10 +49,11 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
   
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0'); // Слушаем на всех интерфейсах
   
-  console.log(`🚀 AIc API запущен на http://localhost:${port}`);
-  console.log(`📚 Swagger UI доступен на http://localhost:${port}/api`);
+  console.log(`🚀 AIc API запущен на http://0.0.0.0:${port}`);
+  console.log(`🌐 Доступен по IP: http://192.168.68.65:${port}`);
+  console.log(`📚 Swagger UI доступен на http://192.168.68.65:${port}/api`);
 }
 
 bootstrap();
