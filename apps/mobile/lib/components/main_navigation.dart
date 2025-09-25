@@ -4,6 +4,7 @@ import '../features/chat/real_chat_page.dart';
 import '../features/motivation/simple_motivation_page.dart';
 import '../features/profile/simple_profile_page.dart';
 import '../routes_simple.dart';
+import 'bottom_drawer.dart';
 
 // Provider для текущего индекса навигации
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
@@ -41,41 +42,9 @@ class _MainNavigationPageState extends ConsumerState<MainNavigationPage> {
     const ApiTestPage(),
   ];
 
-  final List<BottomNavigationBarItem> _navItems = [
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.home),
-      label: 'Главная',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.chat_bubble),
-      label: 'Чат',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.favorite),
-      label: 'Мотивация',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.person),
-      label: 'Профиль',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.settings),
-      label: 'Настройки',
-    ),
-  ];
-
-  void _onItemTapped(int index) {
-    ref.read(navigationIndexProvider.notifier).state = index;
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = ref.watch(navigationIndexProvider);
     final isLoading = ref.watch(loadingProvider);
 
     return Scaffold(
@@ -112,16 +81,6 @@ class _MainNavigationPageState extends ConsumerState<MainNavigationPage> {
               ),
             ),
         ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        items: _navItems,
       ),
     );
   }

@@ -2,12 +2,49 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../services/api_client.dart';
 import '../services/logger.dart';
+import '../services/adaptive_chat_session_service.dart';
+import '../services/chat_session_service.dart';
 import 'app_state.dart';
 
 // API Client provider
 final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient();
 });
+
+// Chat Session Service provider with adaptive fallback
+final chatSessionServiceProvider = Provider<AdaptiveChatSessionService>((ref) {
+  return AdaptiveChatSessionService(ref);
+});
+
+// Current Chat Session provider
+final currentChatSessionProvider = StateNotifierProvider<ChatSessionNotifier, ChatSession?>((ref) {
+  return ChatSessionNotifier();
+});
+
+class ChatSessionNotifier extends StateNotifier<ChatSession?> {
+  ChatSessionNotifier() : super(null);
+
+  void setSession(ChatSession session) {
+    state = session;
+  }
+
+  void clearSession() {
+    state = null;
+  }
+
+  void addMessage(ChatMessage message) {
+    if (state != null) {
+      final updatedMessages = [...state!.messages, message];
+      state = ChatSession(
+        id: state!.id,
+        userId: state!.userId,
+        startedAt: state!.startedAt,
+        status: state!.status,
+        messages: updatedMessages,
+      );
+    }
+  }
+}
 
 // User state provider
 final userProvider = StateNotifierProvider<UserNotifier, User?>((ref) {
@@ -49,37 +86,6 @@ class UserNotifier extends StateNotifier<User?> {
     } catch (e) {
       AppLogger.e('Ошибка при выходе: $e');
     }
-  }
-}
-
-// Current chat session provider
-final currentChatSessionProvider =
-    StateNotifierProvider<ChatSessionNotifier, ChatSession?>((ref) {
-  return ChatSessionNotifier();
-});
-
-class ChatSessionNotifier extends StateNotifier<ChatSession?> {
-  ChatSessionNotifier() : super(null);
-
-  void setSession(ChatSession session) {
-    state = session;
-  }
-
-  void addMessage(ChatMessage message) {
-    if (state != null) {
-      final updatedMessages = [...state!.messages, message];
-      state = ChatSession(
-        id: state!.id,
-        userId: state!.userId,
-        startedAt: state!.startedAt,
-        status: state!.status,
-        messages: updatedMessages,
-      );
-    }
-  }
-
-  void clearSession() {
-    state = null;
   }
 }
 

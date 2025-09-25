@@ -115,6 +115,44 @@ export class ChatService {
     };
   }
 
+  async createSessionWithUser(providedUserId?: string) {
+    let userId = providedUserId;
+
+    // Если userId не предоставлен или пользователь не существует, создаем нового
+    if (!userId) {
+      const newUser = await this.prisma.user.create({
+        data: {
+          role: 'child',
+          locale: 'ru',
+          birthYear: new Date().getFullYear() - 15, // 15 лет по умолчанию
+          ageGroup: 'teen',
+        },
+      });
+      userId = newUser.id;
+      this.logger.log(`Создан новый пользователь: ${userId}`);
+    } else {
+      // Проверяем существует ли пользователь
+      const existingUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!existingUser) {
+        const newUser = await this.prisma.user.create({
+          data: {
+            id: userId, // Используем предоставленный ID если он не занят
+            role: 'child',
+            locale: 'ru',
+            birthYear: new Date().getFullYear() - 15,
+            ageGroup: 'teen',
+          },
+        });
+        this.logger.log(`Создан пользователь с ID: ${userId}`);
+      }
+    }
+
+    return this.createSession(userId);
+  }
+
   async getSession(sessionId: string) {
     const session = await this.prisma.chatSession.findUnique({
       where: { id: sessionId },
@@ -427,6 +465,34 @@ export class ChatService {
         return CRISIS_RESPONSE_TEMPLATES.abuse.immediate + '\n\n' + CRISIS_RESPONSE_TEMPLATES.abuse.support;
       default:
         return CRISIS_RESPONSE_TEMPLATES.suicide.immediate;
+    }
+  }
+
+  /**
+   * Отправляет сообщение пользователя и возвращает ответ AI
+   */
+  async sendMessage(sessionId: string, content: string) {
+    try {
+      // Сначала добавляем сообщение пользователя в базу
+      const userMessage = await this.addMessage(sessionId, 'user', content);
+
+      // Обрабатываем сообщение через AI и получаем ответ
+      const aiResponse = await this.processUserMessage(sessionId, content);
+
+      this.logger.log(`✅ Сообщение обработано, получен ответ AI для сессии: ${sessionId}`);
+
+      // Возвращаем ответ в формате, который ожидает клиент
+      // aiResponse содержит ChatResponse с полем message
+      return {
+        id: 'msg-' + Date.now(),
+        content: aiResponse.message || 'Извините, не могу ответить прямо сейчас.',
+        role: 'assistant',
+        sessionId: sessionId,
+        createdAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`❌ Ошибка обработки сообщения: ${error}`);
+      throw error;
     }
   }
 

@@ -4,19 +4,23 @@ import 'package:aic_mobile/services/notifications.dart';
 import 'package:aic_mobile/services/logger.dart';
 import 'package:aic_mobile/config/api_config.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../components/navigation/navigation.dart';
+import '../../state/server_config_provider.dart';
+import '../../state/providers.dart';
+import '../../services/chat_session_service.dart';
 
-class AuthPage extends StatefulWidget {
+class AuthPage extends ConsumerStatefulWidget {
   const AuthPage({super.key});
 
   @override
-  State<AuthPage> createState() => _AuthPageState();
+  ConsumerState<AuthPage> createState() => _AuthPageState();
 }
 
-class _AuthPageState extends State<AuthPage> {
+class _AuthPageState extends ConsumerState<AuthPage> {
   final _nickController = TextEditingController();
   String _selectedAge = '13-15';
   String _selectedCountry = 'CZ';
@@ -103,9 +107,15 @@ class _AuthPageState extends State<AuthPage> {
     try {
       AppLogger.i('Создаем пользователя...');
 
+      // Получаем текущую конфигурацию API
+      final apiConfig = ref.read(currentApiConfigProvider);
+      final baseUrl = apiConfig['baseUrl']!;
+      
+      AppLogger.i('Используем сервер: ${apiConfig['name']} - $baseUrl');
+
       // Создаем пользователя через API
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/guest'),
+        Uri.parse('$baseUrl/auth/guest'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'nick': _nickController.text.trim(),
@@ -140,30 +150,20 @@ class _AuthPageState extends State<AuthPage> {
 
         AppLogger.i('Создаем чат сессию...');
 
-        // Создаем чат сессию
-        final sessionResponse = await http.post(
-          Uri.parse('${ApiConfig.baseUrl}/chat/session'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'userId': userId}),
-        );
+        // Создаем чат сессию через адаптивный сервис
+        final chatService = ref.read(chatSessionServiceProvider);
+        final session = await chatService.createSession(userId);
+        
+        await prefs.setString('session_id', session.id);
+        
+        // Сохраняем сессию в провайдере
+        ref.read(currentChatSessionProvider.notifier).setSession(session);
 
-        AppLogger.d('Ответ сессии: ${sessionResponse.statusCode}');
-        AppLogger.d('Тело сессии: ${sessionResponse.body}');
+        AppLogger.i('Сессия создана: ${session.id} (${chatService.serviceType})');
 
-        if (sessionResponse.statusCode == 200 ||
-            sessionResponse.statusCode == 201) {
-          final sessionData = jsonDecode(sessionResponse.body);
-          await prefs.setString('session_id', sessionData['sessionId']);
-
-          AppLogger.i('Сессия создана: ${sessionData['sessionId']}');
-
-          // Переходим к чату
-          if (mounted) {
-            context.go('/home');
-          }
-        } else {
-          throw Exception(
-              'Ошибка создания сессии: ${sessionResponse.statusCode} - ${sessionResponse.body}');
+        // Переходим к чату
+        if (mounted) {
+          context.go('/home');
         }
       } else {
         throw Exception(

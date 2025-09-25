@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class SimpleMotivationPage extends ConsumerStatefulWidget {
   const SimpleMotivationPage({super.key});
@@ -60,6 +61,16 @@ class _SimpleMotivationPageState extends ConsumerState<SimpleMotivationPage> {
         title: const Text('Мотивация'),
         backgroundColor: currentContent['color'],
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
       ),
       body: Container(
         decoration: BoxDecoration(

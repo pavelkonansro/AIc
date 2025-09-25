@@ -4,6 +4,7 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:uuid/uuid.dart';
 import 'dart:math';
+import 'package:go_router/go_router.dart';
 
 class SimpleChatPage extends ConsumerStatefulWidget {
   const SimpleChatPage({super.key});
@@ -88,6 +89,18 @@ class _SimpleChatPageState extends ConsumerState<SimpleChatPage> {
         title: const Text('Chat с AIc'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Используем Navigator.pop() если есть предыдущий экран в стеке
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              // Если нет предыдущего экрана, переходим на главную
+              context.go('/');
+            }
+          },
+        ),
       ),
       body: Chat(
         messages: _messages,

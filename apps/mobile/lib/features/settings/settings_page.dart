@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../components/navigation/navigation.dart';
+import '../../config/api_config.dart';
+import '../../state/server_config_provider.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _notificationsEnabled = true;
   bool _dailyReminderEnabled = false;
   TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
@@ -116,6 +119,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: _dailyReminderEnabled ? _pickReminderTime : null,
               ),
+            ],
+          ),
+          _SettingsGroup(
+            title: 'Сервер разработчика',
+            children: [
+              _ServerSelectionTile(),
             ],
           ),
           _SettingsGroup(
@@ -225,5 +234,108 @@ class _SettingsGroup extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _ServerSelectionTile extends ConsumerWidget {
+  const _ServerSelectionTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentServer = ref.watch(serverConfigProvider);
+    final apiConfig = ref.watch(currentApiConfigProvider);
+
+    return ListTile(
+      leading: Icon(
+        currentServer == ServerEnvironment.lanDev
+          ? Icons.wifi_outlined
+          : currentServer == ServerEnvironment.tunnelDev
+            ? Icons.tunnel_outlined
+            : Icons.cloud_outlined,
+        color: _getServerColor(currentServer),
+      ),
+      title: Text(apiConfig['name']!),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(apiConfig['baseUrl']!),
+          const SizedBox(height: 2),
+          Text(
+            apiConfig['description']!,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () => _showServerSelectionDialog(context, ref),
+    );
+  }
+
+  Color _getServerColor(ServerEnvironment env) {
+    switch (env) {
+      case ServerEnvironment.lanDev:
+        return Colors.blue;
+      case ServerEnvironment.tunnelDev:
+        return Colors.purple;
+      case ServerEnvironment.production:
+        return Colors.green;
+    }
+  }
+
+  void _showServerSelectionDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выбор сервера'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ServerEnvironment.values.map((env) {
+            final isSelected = ref.read(serverConfigProvider) == env;
+            return ListTile(
+              leading: Icon(
+                env == ServerEnvironment.lanDev
+                  ? Icons.wifi_outlined
+                  : env == ServerEnvironment.tunnelDev
+                    ? Icons.tunnel_outlined
+                    : Icons.cloud_outlined,
+                color: isSelected ? _getServerColor(env) : null,
+              ),
+              title: Text(_getServerName(env)),
+              subtitle: Text(_getServerUrl(env)),
+              trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
+              onTap: () {
+                ref.read(serverConfigProvider.notifier).changeServer(env);
+                Navigator.pop(context);
+
+                // Показываем snackbar с информацией о смене сервера
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Сервер изменен на: ${_getServerName(env)}'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getServerName(ServerEnvironment env) {
+    return ApiConfig.getServerName(env);
+  }
+
+  String _getServerUrl(ServerEnvironment env) {
+    return ApiConfig.getServerUrl(env);
   }
 }

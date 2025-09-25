@@ -29,6 +29,14 @@ class BlockRenderer extends ConsumerWidget {
         return _QuickActionsBlock(data: blockData);
       case 'category_grid':
         return _CategoryGridBlock(data: blockData);
+      case 'support_contacts':
+        return _SupportContactsBlock(data: blockData);
+      case 'meditation_exercises':
+        return _MeditationExercisesBlock(data: blockData);
+      case 'tips_list':
+        return _TipsListBlock(data: blockData);
+      case 'info_card':
+        return _InfoCardBlock(data: blockData);
       default:
         return Container(
           padding: const EdgeInsets.all(16),
@@ -45,9 +53,9 @@ class _HeroCardBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradient = (data['gradient'] as List<dynamic>)
-        .map((c) => Color(int.parse(c.toString().replaceFirst('#', '0xFF'))))
-        .toList();
+    final gradient = (data['gradient'] as List<dynamic>?)
+        ?.map((c) => Color(int.parse(c.toString().replaceFirst('#', '0xFF'))))
+        .toList() ?? [Colors.blue, Colors.purple];
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -116,8 +124,10 @@ class _MoodSelectorBlock extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          Wrap(
+            alignment: WrapAlignment.spaceAround,
+            spacing: 8.0,
+            runSpacing: 8.0,
             children: moods.map((mood) {
               final moodType = MoodType.values.firstWhere(
                 (m) => m.name == mood['value'],
@@ -256,7 +266,7 @@ class _QuickActionsBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions = data['actions'] as List<dynamic>;
+    final actions = (data['actions'] as List<dynamic>?) ?? [];
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -266,7 +276,7 @@ class _QuickActionsBlock extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
-              data['title'],
+              data['title'] ?? 'Untitled',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -287,7 +297,7 @@ class _QuickActionsBlock extends StatelessWidget {
             itemBuilder: (context, index) {
               final action = actions[index];
               return GestureDetector(
-                onTap: () => context.go(action['route']),
+                onTap: () => context.go(action['route'] ?? '/'),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -305,19 +315,30 @@ class _QuickActionsBlock extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        _getIconData(action['icon']),
+                        _getIconData(action['icon'] ?? 'help'),
                         size: 32,
                         color: Colors.blue,
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        action['label'],
+                        action['label'] ?? action['title'] ?? 'Unnamed',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
                         textAlign: TextAlign.center,
                       ),
+                      if (action['subtitle'] != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          action['subtitle'],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -352,13 +373,29 @@ class _CategoryGridBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categories = data['categories'] as List<dynamic>;
+    final categories = (data['categories'] as List<dynamic>?) ?? [];
 
     return Container(
       margin: const EdgeInsets.all(16),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (data['title'] != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                data['title'],
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 16,
@@ -392,7 +429,7 @@ class _CategoryGridBlock extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    category['title'],
+                    category['title'] ?? 'Untitled',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -405,6 +442,8 @@ class _CategoryGridBlock extends StatelessWidget {
             ),
           );
         },
+      ),
+        ],
       ),
     );
   }
@@ -419,6 +458,383 @@ class _CategoryGridBlock extends StatelessWidget {
         return Icons.home;
       default:
         return Icons.category;
+    }
+  }
+}
+
+class _SupportContactsBlock extends StatelessWidget {
+  final Map<String, dynamic> data;
+
+  const _SupportContactsBlock({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final contacts = data['contacts'] as List<dynamic>;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            data['title'] ?? 'Контакты',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...contacts.map((contact) => Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.phone,
+                    color: Colors.blue,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        contact['title'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        contact['phone'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      if (contact['description'] != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          contact['description'],
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeditationExercisesBlock extends StatelessWidget {
+  final Map<String, dynamic> data;
+
+  const _MeditationExercisesBlock({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final exercises = data['exercises'] as List<dynamic>;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            data['title'] ?? 'Упражнения',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...exercises.map((exercise) => Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.self_improvement,
+                    color: Colors.green,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exercise['title'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        exercise['description'],
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      if (exercise['duration'] != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Длительность: ${exercise['duration']}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.green,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+class _TipsListBlock extends StatelessWidget {
+  final Map<String, dynamic> data;
+
+  const _TipsListBlock({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final tips = data['tips'] as List<dynamic>;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            data['title'] ?? 'Советы',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...tips.map((tip) => Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.lightbulb,
+                    color: Colors.orange,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tip['title'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        tip['description'],
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoCardBlock extends StatelessWidget {
+  final Map<String, dynamic> data;
+
+  const _InfoCardBlock({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = data['color'] != null
+        ? Color(int.parse(data['color'].toString().replaceFirst('#', '0xFF')))
+        : Colors.blue;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (data['icon'] != null)
+            Icon(
+              _getIconForInfo(data['icon']),
+              color: Colors.white,
+              size: 32,
+            ),
+          if (data['icon'] != null) const SizedBox(height: 16),
+          Text(
+            data['title'],
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            data['description'],
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+              height: 1.4,
+            ),
+          ),
+          if (data['items'] != null) ...[
+            const SizedBox(height: 16),
+            ...(data['items'] as List<dynamic>).map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      item.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  IconData _getIconForInfo(String iconName) {
+    switch (iconName) {
+      case 'info':
+        return Icons.info_outline;
+      case 'warning':
+        return Icons.warning_outlined;
+      case 'help':
+        return Icons.help_outline;
+      case 'tips':
+        return Icons.lightbulb_outline;
+      default:
+        return Icons.info_outline;
     }
   }
 }

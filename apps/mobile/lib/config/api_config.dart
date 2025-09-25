@@ -1,87 +1,113 @@
 import 'package:flutter/foundation.dart';
+import 'dart:io';
 
-// Среды для тестирования
-enum ServerEnvironment { 
-  local,      // Mac разработчика
-  beget,      // Beget hosting для тестирования
-  production  // Продакшн сервер
+enum ServerEnvironment {
+  lanDev,      // Локальная сеть: симулятор → 127.0.0.1:3000, iPhone → Mac IP:3000
+  tunnelDev,   // Туннель: все → https://aic-dev-stable.ngrok.app
+  production   // Продакшн: позже
 }
 
 class ApiConfig {
-  // 🔄 ПЕРЕКЛЮЧАТЕЛЬ СЕРВЕРОВ - измени здесь для переключения
-  static const ServerEnvironment _currentEnv = ServerEnvironment.beget;
+  // Автоопределение окружения
+  static ServerEnvironment get currentEnvironment {
+    // По умолчанию lanDev для разработки
+    return ServerEnvironment.lanDev;
+  }
   
-  // Конфигурация серверов
-  static const String _macIp = '192.168.68.65';        // IP Mac
-  static const String _begetDomain = 'konans6z.beget.tech';  // ✅ Ваш Beget домен
-  static const String _prodUrl = 'https://api.aic-app.com';     // Продакшн
-  static const String _port = '3000';
+  // Получение IP Mac для LAN режима
+  static String get _macLocalIP => '192.168.68.65';
   
-  // Конфигурация для каждой среды
-  static const Map<ServerEnvironment, Map<String, String>> _configs = {
-    ServerEnvironment.local: {
-      'name': 'Mac Local',
-      'baseUrl': 'http://$_macIp:$_port',
-      'wsUrl': 'ws://$_macIp:$_port',
-      'description': 'Локальный сервер на Mac разработчика'
-    },
-    ServerEnvironment.beget: {
-      'name': 'Beget Hosting',
-      'baseUrl': 'https://$_begetDomain',
-      'wsUrl': 'wss://$_begetDomain',
-      'description': 'Тестовый сервер на Beget хостинге с SSL'
-    },
-    ServerEnvironment.production: {
-      'name': 'Production',
-      'baseUrl': _prodUrl,
-      'wsUrl': 'wss://api.aic-app.com',
-      'description': 'Продакшн сервер'
-    },
+  // Определение устройства: симулятор или физическое
+  static bool get _isSimulator {
+    if (kDebugMode && Platform.isIOS) {
+      // В симуляторе Environment.version содержит 'Simulator'
+      return Platform.environment['SIMULATOR_DEVICE_NAME'] != null;
+    }
+    return false;
+  }
+  
+  // Главные getters для текущего окружения
+  static String get baseUrl => _getBaseUrl(currentEnvironment);
+  static String get wsUrl => _getWsUrl(currentEnvironment);
+  static String get currentServerName => getServerName(currentEnvironment);
+  static String get currentServerDescription => getServerDescription(currentEnvironment);
+  static String get environmentName => getServerName(currentEnvironment);
+  
+  static List<ServerEnvironment> get availableEnvironments => ServerEnvironment.values;
+  
+  // Внутренние методы для получения URL по окружению
+  static String _getBaseUrl(ServerEnvironment env) {
+    switch (env) {
+      case ServerEnvironment.lanDev:
+        // LAN: симулятор → localhost, iPhone → Mac IP
+        return _isSimulator ? 'http://127.0.0.1:3000' : 'http://$_macLocalIP:3000';
+      case ServerEnvironment.tunnelDev:
+        return 'https://subcuticular-latrisha-commemoratively.ngrok-free.dev';
+      case ServerEnvironment.production:
+        return 'https://api.aic-app.com';
+    }
+  }
+  
+  static String _getWsUrl(ServerEnvironment env) {
+    switch (env) {
+      case ServerEnvironment.lanDev:
+        // WebSocket: симулятор → ws://localhost, iPhone → ws://Mac IP
+        return _isSimulator ? 'ws://127.0.0.1:3000' : 'ws://$_macLocalIP:3000';
+      case ServerEnvironment.tunnelDev:
+        return 'wss://subcuticular-latrisha-commemoratively.ngrok-free.dev';
+      case ServerEnvironment.production:
+        return 'wss://api.aic-app.com';
+    }
+  }
+  
+  static String getServerName(ServerEnvironment env) {
+    switch (env) {
+      case ServerEnvironment.lanDev:
+        return _isSimulator ? 'LAN Dev (Simulator → localhost)' : 'LAN Dev (iPhone → Mac IP)';
+      case ServerEnvironment.tunnelDev:
+        return 'Tunnel Dev (ngrok)';
+      case ServerEnvironment.production:
+        return 'Production';
+    }
+  }
+  
+  static String getServerDescription(ServerEnvironment env) {
+    switch (env) {
+      case ServerEnvironment.lanDev:
+        return _isSimulator 
+          ? 'Симулятор подключается к 127.0.0.1:3000' 
+          : 'iPhone подключается к Mac $_macLocalIP:3000';
+      case ServerEnvironment.tunnelDev:
+        return 'Все устройства через ngrok туннель';
+      case ServerEnvironment.production:
+        return 'Продакшн сервер';
+    }
+  }
+  
+  static String getServerUrl(ServerEnvironment env) {
+    return _getBaseUrl(env);
+  }
+  
+  static Map<String, String> getConfig(ServerEnvironment env) {
+    return {
+      'name': getServerName(env),
+      'baseUrl': _getBaseUrl(env),
+      'wsUrl': _getWsUrl(env),
+      'description': getServerDescription(env),
+    };
+  }
+  
+  // Методы для переключения окружений
+  static ServerEnvironment switchToLanDev() => ServerEnvironment.lanDev;
+  static ServerEnvironment switchToTunnelDev() => ServerEnvironment.tunnelDev;
+  
+  // Debug информация
+  static Map<String, dynamic> get debugInfo => {
+    'isSimulator': _isSimulator,
+    'macLocalIP': _macLocalIP,
+    'currentEnvironment': currentEnvironment.name,
+    'currentBaseUrl': baseUrl,
+    'currentWsUrl': wsUrl,
+    'deviceType': _isSimulator ? 'iOS Simulator' : 'Physical Device',
   };
-  
-  // Получение текущей конфигурации
-  static Map<String, String> get _currentConfig => _configs[_currentEnv]!;
-  
-  static String get baseUrl {
-    if (kIsWeb) {
-      // Для веба используем текущую конфигурацию
-      return _currentConfig['baseUrl']!;
-    }
-    
-    // Для всех платформ используем текущую конфигурацию
-    return _currentConfig['baseUrl']!;
-  }
-  
-  static String get wsUrl {
-    if (kIsWeb) {
-      return _currentConfig['wsUrl']!;
-    }
-    
-    return _currentConfig['wsUrl']!;
-  }
-  
-  // Информация о текущем сервере
-  static ServerEnvironment get currentEnvironment => _currentEnv;
-  static String get currentServerName => _currentConfig['name']!;
-  static String get currentServerDescription => _currentConfig['description']!;
-  
-  // Все доступные серверы (для UI переключения)
-  static List<ServerEnvironment> get availableEnvironments => 
-      ServerEnvironment.values;
-  
-  static String getServerName(ServerEnvironment env) => 
-      _configs[env]!['name']!;
-  
-  static String getServerUrl(ServerEnvironment env) => 
-      _configs[env]!['baseUrl']!;
-  
-  // Вспомогательные методы для обратной совместимости
-  static String get localIp => _macIp;
-  static String get begetDomain => _begetDomain;
-  static String get port => _port;
-  
-  // Проверка доступности сервера
-  static bool get isLocalServer => _currentEnv == ServerEnvironment.local;
-  static bool get isBegetServer => _currentEnv == ServerEnvironment.beget;
-  static bool get isProductionServer => _currentEnv == ServerEnvironment.production;
 }

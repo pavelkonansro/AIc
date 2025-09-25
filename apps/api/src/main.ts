@@ -14,12 +14,18 @@ async function bootstrap() {
   // app.use(helmet()); // Временно отключено для Flutter веб
   app.use(cookieParser());
   
-  // CORS - разрешаем все origins для разработки
+  // CORS - настройка для dev режимов
   app.enableCors({ 
-    origin: true, // Разрешаем все origins для разработки
+    origin: [
+      'http://127.0.0.1:3000',     // Симулятор localhost
+      'http://localhost:3000',      // Симулятор localhost
+      'http://192.168.68.65:3000',  // iPhone → Mac IP
+      /^https:\/\/.*\.ngrok-free\.dev$/, // ngrok туннели
+      /^https:\/\/.*\.ngrok\.app$/,      // ngrok статичные домены
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'ngrok-skip-browser-warning'],
   });
   
   // Validation
@@ -49,11 +55,13 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
   
   const port = process.env.PORT ?? 3000;
-  await app.listen(port, '0.0.0.0'); // Слушаем на всех интерфейсах
-  
-  console.log(`🚀 AIc API запущен на http://0.0.0.0:${port}`);
-  console.log(`🌐 Доступен по IP: http://192.168.68.65:${port}`);
-  console.log(`📚 Swagger UI доступен на http://192.168.68.65:${port}/api`);
+  const host = process.env.HOST ?? '0.0.0.0'; // КРИТИЧНО: для iPhone доступа
+  await app.listen(port, host);
+
+  console.log(`🚀 AIc API запущен на http://${host}:${port}`);
+  console.log(`📱 Доступен для iPhone: http://192.168.68.65:${port}`);
+  console.log(`🌐 Swagger UI доступен на http://localhost:${port}/api`);
+  console.log(`🔍 Тестируйте: curl -X GET http://localhost:${port}/health`);
 }
 
 bootstrap();

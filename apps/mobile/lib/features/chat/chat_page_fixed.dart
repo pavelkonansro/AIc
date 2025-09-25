@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
+import '../../utils/string_utils.dart';
 
 class ChatPageFixed extends StatefulWidget {
   final String? initialMessage;
@@ -354,7 +355,11 @@ class _ChatPageFixedState extends State<ChatPageFixed> {
                           Icon(Icons.psychology_outlined, color: Colors.green, size: 16),
                           const SizedBox(width: 4),
                           Text(
-                            _currentModel.split('/').last.replaceAll(':', '').substring(0, 8),
+                            StringUtils.safeTruncate(
+                              _currentModel.split('/').last.replaceAll(':', ''),
+                              8,
+                              ''
+                            ),
                             style: const TextStyle(color: Colors.white, fontSize: 11),
                           ),
                           const SizedBox(width: 12),

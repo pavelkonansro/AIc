@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'firebase_options.dart';
+import 'config/firebase_config.dart';
 
-// Импорт только базовых компонентов
-import 'features/chat/new_chat_page.dart';
-import 'features/motivation/simple_motivation_page.dart';
-import 'features/profile/simple_profile_page.dart';
+// Импорт компонентов приложения
 import 'routes_simple.dart';
+import 'components/auth_wrapper.dart';
+import 'state/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +23,12 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    
+    // Configure Firebase for testing (emulator or fallback)
+    if (kDebugMode) {
+      FirebaseConfig.configureForTesting();
+    }
+    
     debugPrint('✅ Firebase initialized successfully');
 
     // Initialize Firebase Messaging
@@ -81,7 +89,7 @@ class AicApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'AIc - AI Companion',
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -92,220 +100,12 @@ class AicApp extends StatelessWidget {
           elevation: 2,
         ),
       ),
-      home: const SafeMainNavigation(),
+      routerConfig: simpleRouter,
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-// Provider для навигации
-final navigationIndexProvider = StateProvider<int>((ref) => 0);
-
-class SafeMainNavigation extends ConsumerStatefulWidget {
-  const SafeMainNavigation({super.key});
-
-  @override
-  ConsumerState<SafeMainNavigation> createState() => _SafeMainNavigationState();
-}
-
-class _SafeMainNavigationState extends ConsumerState<SafeMainNavigation> {
-  late PageController _pageController;
-  bool _isInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController();
-    _initializeApp();
-  }
-
-  Future<void> _initializeApp() async {
-    try {
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-        });
-      }
-    } catch (e) {
-      debugPrint('Initialization error: $e');
-      if (mounted) {
-        setState(() {
-          _isInitialized = true; // Show app anyway
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  final List<Widget> _pages = [
-    const SafeHomePage(),
-    const NewChatPage(), // Используем реальный Grok чат
-    const SimpleMotivationPage(),
-    const SimpleProfilePage(),
-    const ApiTestPage(),
-  ];
-
-  final List<BottomNavigationBarItem> _navItems = [
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.home),
-      label: 'Главная',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.chat_bubble),
-      label: 'Чат',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.favorite),
-      label: 'Мотивация',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.person),
-      label: 'Профиль',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.settings),
-      label: 'Настройки',
-    ),
-  ];
-
-  void _onItemTapped(int index) {
-    ref.read(navigationIndexProvider.notifier).state = index;
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_isInitialized) {
-      return Scaffold(
-        backgroundColor: Colors.blue.shade50,
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.favorite,
-                size: 80,
-                color: Colors.blue,
-              ),
-              SizedBox(height: 20),
-              Text(
-                'AIc',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-              SizedBox(height: 10),
-              Text(
-                'AI companion for teens',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
-              SizedBox(height: 40),
-              CircularProgressIndicator(),
-              SizedBox(height: 20),
-              Text('Загрузка...'),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final currentIndex = ref.watch(navigationIndexProvider);
-
-    return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        children: _pages,
-        onPageChanged: (index) {
-          ref.read(navigationIndexProvider.notifier).state = index;
-        },
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        items: _navItems,
-      ),
-    );
-  }
-}
-
-class SafeHomePage extends StatelessWidget {
-  const SafeHomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('AIc Home'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue.withValues(alpha: 0.1), Colors.white],
-          ),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.home,
-                size: 80,
-                color: Colors.blue,
-              ),
-              SizedBox(height: 20),
-              Text(
-                'AIc App',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 10),
-              Text(
-                'AI companion for teens',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-              SizedBox(height: 40),
-              Text(
-                '✅ App loaded successfully',
-                style: TextStyle(fontSize: 16, color: Colors.green),
-              ),
-              Text(
-                '✅ Navigation ready',
-                style: TextStyle(fontSize: 16, color: Colors.green),
-              ),
-              Text(
-                '✅ All features working',
-                style: TextStyle(fontSize: 16, color: Colors.green),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class FallbackApp extends StatelessWidget {
   const FallbackApp({super.key});

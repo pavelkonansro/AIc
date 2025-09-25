@@ -1,0 +1,32 @@
+# Patrol Configuration
+name: aic_mobile_patrol_tests
+description: Comprehensive Patrol tests for AIc mobile app
+
+# Test configuration
+test_config:
+  timeout: 60s
+  retry_count: 2
+  
+# Device configuration for testing
+devices:
+  - platform: ios
+    version: "17.0"
+    name: "iPhone 15"
+  - platform: android
+    version: "30"
+    name: "Pixel 6"
+
+# Test groups and their priorities
+test_groups:
+  critical:
+    - app_comprehensive_test
+    - chat_feature_test
+  important:
+    - api_integration_test
+    - ui_ux_test
+  
+# Environment variables for testing
+env:
+  API_BASE_URL: "http://localhost:3000"
+  CHAT_PROVIDER: "openrouter"
+  DEBUG_MODE: "true"

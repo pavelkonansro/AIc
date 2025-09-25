@@ -41,6 +41,26 @@ class ApiClient {
     return response.data;
   }
 
+  Future<Map<String, dynamic>> createUserProfile({
+    required String userId,
+    required String email,
+    required String name,
+    required String ageGroup,
+    required String country,
+    required Map<String, dynamic> consentFlags,
+  }) async {
+    final response = await post('/auth/signup', data: {
+      'userId': userId,
+      'email': email,
+      'nick': name,
+      'ageGroup': ageGroup,
+      'country': country,
+      'locale': country.toLowerCase() == 'cz' ? 'cs-CZ' : 'en-US',
+      'consentFlags': consentFlags,
+    });
+    return response.data;
+  }
+
   // Chat methods
   Future<Map<String, dynamic>> startChatSession(String userId) async {
     final response = await post('/chat/session', data: {'userId': userId});

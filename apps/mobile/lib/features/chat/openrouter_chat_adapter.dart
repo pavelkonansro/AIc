@@ -1,16 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:logger/logger.dart';
+import '../../utils/string_utils.dart';
+import 'chat_adapter_interface.dart';
+import '../../models/chat_provider.dart';
 
-class OpenRouterChatAdapter {
-  static const String baseUrl = 'https://openrouter.ai/api/v1';
-  static const String apiKey = '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';
-  static const String model = 'x-ai/grok-4-fast:free';
+class OpenRouterChatAdapter implements ChatAdapter {
 
-  final Dio _dio;
   final Logger _logger = Logger();
+  late final Dio _dio;
 
   String? _sessionId;
+  ChatProviderConfig? _config;
   Function(types.Message)? _onMessageReceived;
   Function(String)? _onError;
   Function(bool)? _onConnectionStatusChanged;
@@ -19,39 +20,44 @@ class OpenRouterChatAdapter {
   bool _isConnected = false;
   int _totalTokensUsed = 0;
   int _messagesCount = 0;
+  DateTime? _lastMessageTime;
 
   final List<Map<String, dynamic>> _conversationHistory = [];
 
-  OpenRouterChatAdapter() : _dio = Dio(BaseOptions(
-    baseUrl: baseUrl,
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 60),
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $apiKey',
-      'HTTP-Referer': 'https://aic-app.com',
-      'X-Title': 'AIc - AI Companion for Teens'
-    },
-  )) {
-    _dio.interceptors.add(LogInterceptor(
-      logPrint: (message) => _logger.d(message),
-    ));
-  }
-
-  void initialize({
+  @override
+  Future<void> initialize({
     required String sessionId,
+    required ChatProviderConfig config,
     required Function(types.Message) onMessageReceived,
     required Function(String) onError,
     Function(bool)? onConnectionStatusChanged,
     Function(Map<String, dynamic>)? onStatsUpdated,
-  }) {
+  }) async {
     _sessionId = sessionId;
+    _config = config;
     _onMessageReceived = onMessageReceived;
     _onError = onError;
     _onConnectionStatusChanged = onConnectionStatusChanged;
     _onStatsUpdated = onStatsUpdated;
 
-    _checkConnection();
+    // Инициализируем Dio с конфигурацией
+    _dio = Dio(BaseOptions(
+      baseUrl: config.apiUrl!,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 60),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer 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',
+        'HTTP-Referer': 'https://aic-app.com',
+        'X-Title': 'AIc - AI Companion for Teens'
+      },
+    ));
+
+    _dio.interceptors.add(LogInterceptor(
+      logPrint: (message) => _logger.d(message),
+    ));
+
+    await _checkConnection();
   }
 
   Future<void> _checkConnection() async {
@@ -70,6 +76,17 @@ class OpenRouterChatAdapter {
     }
   }
 
+  @override
+  Future<bool> checkConnection() async {
+    try {
+      final response = await _dio.get('/models');
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
   Future<void> sendMessage(String text) async {
     if (!_isConnected) {
       _onError?.call('Нет подключения к AI сервису');
@@ -88,21 +105,26 @@ class OpenRouterChatAdapter {
       // Добавляем системное сообщение если это первое сообщение
       final messages = <Map<String, dynamic>>[];
       if (_conversationHistory.length == 1) {
+        final systemPrompt = _config?.systemPrompt ?? 
+          'Ты AIc - дружелюбный AI компаньон для подростков. Отвечай по-русски, будь полезным и поддерживающим. Используй эмодзи для выражения эмоций.';
         messages.add({
           'role': 'system',
-          'content': 'Ты AIc - дружелюбный AI компаньон для подростков. Отвечай по-русски, будь полезным и поддерживающим. Используй эмодзи для выражения эмоций.'
+          'content': systemPrompt
         });
       }
 
       messages.addAll(_conversationHistory);
 
+      final temperature = 0.7;
+      final maxTokens = 1000;
+
       final response = await _dio.post(
         '/chat/completions',
         data: {
-          'model': model,
+          'model': _config?.model ?? 'x-ai/grok-beta',
           'messages': messages,
-          'temperature': 0.7,
-          'max_tokens': 1000,
+          'temperature': temperature,
+          'max_tokens': maxTokens,
           'stream': false,
         },
       );
@@ -126,6 +148,7 @@ class OpenRouterChatAdapter {
         _totalTokensUsed += (usage['total_tokens'] as int?) ?? 0;
       }
       _messagesCount++;
+      _lastMessageTime = DateTime.now();
       _updateStats();
 
       // Создаем сообщение для UI
@@ -137,7 +160,7 @@ class OpenRouterChatAdapter {
       );
 
       _onMessageReceived?.call(message);
-      _logger.i('Получен ответ от OpenRouter: ${assistantMessage.substring(0, 100)}...');
+      _logger.i('Получен ответ от OpenRouter: ${StringUtils.logPreview(assistantMessage)}');
 
     } catch (e) {
       _logger.e('Ошибка отправки сообщения: $e');
@@ -156,23 +179,21 @@ class OpenRouterChatAdapter {
   }
 
   void _updateStats() {
-    _onStatsUpdated?.call({
-      'model': model,
-      'isConnected': _isConnected,
-      'totalTokens': _totalTokensUsed,
-      'messagesCount': _messagesCount,
-    });
+    _onStatsUpdated?.call(getStats());
   }
 
+  @override
   Map<String, dynamic> getStats() {
-    return {
-      'model': model,
-      'isConnected': _isConnected,
-      'totalTokens': _totalTokensUsed,
-      'messagesCount': _messagesCount,
-    };
+    return ChatStats(
+      model: _config?.model ?? 'unknown',
+      isConnected: _isConnected,
+      totalTokens: _totalTokensUsed,
+      messagesCount: _messagesCount,
+      lastMessageTime: _lastMessageTime,
+    ).toMap();
   }
 
+  @override
   void dispose() {
     _conversationHistory.clear();
     _dio.close();

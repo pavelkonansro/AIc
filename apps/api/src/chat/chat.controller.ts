@@ -9,8 +9,8 @@ export class ChatController {
 
   @Post('session')
   @ApiOperation({ summary: 'Создание новой сессии чата' })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Сессия чата создана',
     schema: {
       type: 'object',
@@ -21,8 +21,8 @@ export class ChatController {
       },
     },
   })
-  async startSession(@Body() body: { userId: string }) {
-    return this.chatService.createSession(body.userId);
+  async startSession(@Body() body: { userId?: string, title?: string } = {}) {
+    return this.chatService.createSessionWithUser(body.userId);
   }
 
   @Get('session/:sessionId')
@@ -53,6 +53,26 @@ export class ChatController {
   })
   async endSession(@Param('sessionId') sessionId: string) {
     return this.chatService.endSession(sessionId);
+  }
+
+  @Post('message')
+  @ApiOperation({ summary: 'Отправка сообщения в чат и получение ответа от AI' })
+  @ApiResponse({
+    status: 201,
+    description: 'Сообщение отправлено, получен ответ AI',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        content: { type: 'string' },
+        role: { type: 'string', enum: ['assistant'] },
+        sessionId: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  async sendMessage(@Body() body: { sessionId: string, content: string }) {
+    return this.chatService.sendMessage(body.sessionId, body.content);
   }
 }
 

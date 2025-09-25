@@ -1,5 +1,6 @@
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
+import '../../config/api_config.dart';
 
 class GrokChatAdapter {
   socket_io.Socket? _socket;
@@ -19,8 +20,11 @@ class GrokChatAdapter {
   }
 
   void _connectSocket() {
+    // Используем WebSocket URL из конфигурации API
+    final wsUrl = '${ApiConfig.wsUrl}/chat';
+    
     _socket = socket_io.io(
-      'http://192.168.68.65:3000/chat',
+      wsUrl,
       socket_io.OptionBuilder()
           .setTransports(['websocket'])
           .enableAutoConnect()

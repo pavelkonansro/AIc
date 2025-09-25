@@ -11,7 +11,16 @@ import { Socket, Server } from 'socket.io';
 import { ChatService } from './chat.service';
 
 @WebSocketGateway({ 
-  cors: { origin: /localhost/ },
+  cors: { 
+    origin: [
+      'http://127.0.0.1:3000',
+      'http://localhost:3000',
+      'http://192.168.68.65:3000',
+      /^https:\/\/.*\.ngrok-free\.dev$/,
+      /^https:\/\/.*\.ngrok\.app$/,
+    ],
+    credentials: true,
+  },
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {

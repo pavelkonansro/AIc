@@ -2,9 +2,19 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'services/api_client_simple.dart';
+import 'state/server_config_provider.dart';
 import 'features/chat/simple_chat_page.dart';
+import 'features/chat/openrouter_chat_page.dart';
 import 'features/motivation/simple_motivation_page.dart';
 import 'features/profile/simple_profile_page.dart';
+import 'features/auth/registration_page.dart';
+import 'components/auth_wrapper.dart';
+import 'components/global_navigation_wrapper.dart';
+import 'services/block_renderer.dart';
+import 'screens/dynamic_screen.dart';
+import 'debug/auth_debug_page.dart';
+import 'debug/network_diagnostics_page.dart';
+import 'debug/server_switcher_page.dart';
 
 // Простые страницы для начального тестирования
 class SimplePage extends StatelessWidget {
@@ -126,6 +136,51 @@ class _SimpleHomePageState extends ConsumerState<SimpleHomePage> {
         ),
       );
     }
+
+    // Используем динамический контент из JSON
+    final screenDataAsync = ref.watch(screenDataProvider('home'));
+
+    return screenDataAsync.when(
+      data: (screenData) => _buildDynamicScreen(context, screenData),
+      loading: () => Scaffold(
+        appBar: AppBar(
+          title: const Text('AIc Home'),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => _buildFallbackScreen(context),
+    );
+  }
+
+  Widget _buildDynamicScreen(BuildContext context, Map<String, dynamic> screenData) {
+    final blocks = screenData['blocks'] as List<dynamic>;
+    final title = screenData['title'] as String? ?? 'AIc Home';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final blockData = blocks[index] as Map<String, dynamic>;
+                return BlockRenderer(blockData: blockData);
+              },
+              childCount: blocks.length,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFallbackScreen(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('AIc Home'),
@@ -179,6 +234,30 @@ class _SimpleHomePageState extends ConsumerState<SimpleHomePage> {
                 ElevatedButton(
                   onPressed: () => context.go('/api-test'),
                   child: Text('API Test'),
+                ),
+                ElevatedButton(
+                  onPressed: () => context.go('/debug/auth'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('🐛 Auth Debug'),
+                ),
+                ElevatedButton(
+                  onPressed: () => context.go('/debug/network'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('🌐 Network Test'),
+                ),
+                ElevatedButton(
+                  onPressed: () => context.go('/debug/servers'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('🔄 Servers'),
                 ),
               ],
             ),
@@ -236,6 +315,9 @@ class _ApiTestPageState extends ConsumerState<ApiTestPage> {
 
   @override
   Widget build(BuildContext context) {
+    final apiConfig = ref.watch(currentApiConfigProvider);
+    final currentServer = ref.watch(serverConfigProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('API Test'),
@@ -247,6 +329,35 @@ class _ApiTestPageState extends ConsumerState<ApiTestPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Информация о сервере
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '🌐 Текущий сервер: ${apiConfig['name']}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'URL: ${apiConfig['baseUrl']}',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    apiConfig['description']!,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -287,31 +398,112 @@ final simpleRouter = GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      builder: (_, __) => const SimpleHomePage(),
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: SimpleHomePage(),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/home',
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: SimpleHomePage(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/chat',
-      builder: (_, __) => const SimpleChatPage(),
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          showNavigation: false,
+          child: OpenRouterChatPage(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/profile',
-      builder: (_, __) => const SimpleProfilePage(),
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: SimpleProfilePage(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/settings',
-      builder: (_, __) => const SimplePage(title: 'Settings'),
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: DynamicScreen(screenName: 'settings'),
+        ),
+      ),
     ),
     GoRoute(
       path: '/support',
-      builder: (_, __) => const SimplePage(title: 'Support'),
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: DynamicScreen(screenName: 'support'),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/meditation',
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: DynamicScreen(screenName: 'meditation'),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/tips',
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: DynamicScreen(screenName: 'tips'),
+        ),
+      ),
     ),
     GoRoute(
       path: '/motivation',
-      builder: (_, __) => const SimpleMotivationPage(),
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: SimpleMotivationPage(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/api-test',
-      builder: (_, __) => const ApiTestPage(),
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: ApiTestPage(),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/situations',
+      builder: (_, __) => const AuthWrapper(
+        child: GlobalNavigationWrapper(
+          child: DynamicScreen(screenName: 'situations'),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/register',
+      builder: (_, __) => const RegistrationPage(),
+    ),
+    GoRoute(
+      path: '/debug/auth',
+      builder: (_, __) => const AuthDebugPage(),
+    ),
+    GoRoute(
+      path: '/debug/network',
+      builder: (_, __) => const NetworkDiagnosticsPage(),
+    ),
+    GoRoute(
+      path: '/debug/servers',
+      builder: (_, __) => const ServerSwitcherPage(),
+    ),
+    GoRoute(
+      path: '/debug/environment',
+      builder: (_, __) => const SimplePage(title: 'Environment Settings (Coming Soon)'),
     ),
   ],
 );

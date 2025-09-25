@@ -7,9 +7,15 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:mobile\"",
+    "dev": "scripts/dev-start.sh ios-simulator",
+    "dev:ios": "scripts/dev-start.sh ios-simulator",
+    "dev:android": "scripts/dev-start.sh android",
+    "dev:web": "scripts/dev-start.sh chrome",
     "dev:api": "cd apps/api && npm run dev",
     "dev:mobile": "cd apps/mobile && flutter run",
+    "dev:clean": "scripts/clean-processes.sh && scripts/dev-start.sh ios-simulator",
+    "health": "scripts/health-check.sh",
+    "clean-processes": "scripts/clean-processes.sh",
     "build": "npm run build:packages && npm run build:api",
     "build:packages": "cd packages/common && npm run build && cd ../safety && npm run build",
     "build:api": "cd apps/api && npm run build",
