@@ -182,6 +182,7 @@ class NotificationService {
         ),
         iOS: DarwinNotificationDetails(),
       ),
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );

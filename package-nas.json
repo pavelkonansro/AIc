@@ -1,0 +1,29 @@
+{
+  "name": "aic-nas-server",
+  "version": "1.0.0",
+  "description": "AIc test server for Synology NAS DS218",
+  "main": "simple-test-server-nas.js",
+  "scripts": {
+    "start": "node simple-test-server-nas.js",
+    "dev": "node simple-test-server-nas.js",
+    "test": "echo \"No tests specified for NAS server\" && exit 0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "redis": "^4.6.8",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "aic",
+    "synology",
+    "nas",
+    "test-server",
+    "api"
+  ],
+  "author": "AIc Team",
+  "license": "MIT"
+}

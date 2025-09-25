@@ -3,8 +3,9 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'chat_adapter.dart';
-import '../../components/navigation/navigation.dart';
+import 'openrouter_chat_adapter.dart';
+import '../../components/navigation/aic_scaffold.dart';
+import '../../services/api_client_simple.dart';
 
 class NewChatPage extends ConsumerStatefulWidget {
   final String? initialMessage;
@@ -25,8 +26,14 @@ class _NewChatPageState extends ConsumerState<NewChatPage> {
   final _user = const types.User(id: 'user', firstName: 'Ты');
   final _assistant = const types.User(id: 'assistant', firstName: 'AIc');
 
-  late final GrokChatAdapter _chatAdapter;
+  late final OpenRouterChatAdapter _chatAdapter;
   bool _isConnected = false;
+  Map<String, dynamic> _stats = {
+    'model': 'grok-4-fast:free',
+    'isConnected': false,
+    'totalTokens': 0,
+    'messagesCount': 0,
+  };
 
   @override
   void initState() {
@@ -35,19 +42,23 @@ class _NewChatPageState extends ConsumerState<NewChatPage> {
   }
 
   Future<void> _initChat() async {
-    final prefs = await SharedPreferences.getInstance();
-    final sessionId = prefs.getString('session_id');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? sessionId = prefs.getString('session_id');
 
-    if (sessionId == null) {
-      _showError('Сессия не найдена');
-      return;
-    }
+      if (sessionId == null) {
+        // Генерируем уникальный sessionId для OpenRouter чата
+        sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+        await prefs.setString('session_id', sessionId);
+      }
 
-    _chatAdapter = GrokChatAdapter();
+    _chatAdapter = OpenRouterChatAdapter();
     _chatAdapter.initialize(
-      sessionId: sessionId,
+      sessionId: sessionId!,
       onMessageReceived: _handleMessageReceived,
       onError: _showError,
+      onConnectionStatusChanged: _handleConnectionStatusChanged,
+      onStatsUpdated: _handleStatsUpdated,
     );
 
     // Добавляем приветственное сообщение
@@ -67,6 +78,9 @@ class _NewChatPageState extends ConsumerState<NewChatPage> {
     if (widget.initialMessage?.isNotEmpty == true) {
       _handleSendPressed(types.PartialText(text: widget.initialMessage!));
     }
+    } catch (e) {
+      _showError('Ошибка инициализации: $e');
+    }
   }
 
   String _getWelcomeMessage() {
@@ -85,6 +99,19 @@ class _NewChatPageState extends ConsumerState<NewChatPage> {
   void _handleMessageReceived(types.Message message) {
     setState(() {
       _messages.insert(0, message);
+    });
+  }
+
+  void _handleConnectionStatusChanged(bool isConnected) {
+    setState(() {
+      _isConnected = isConnected;
+      _stats['isConnected'] = isConnected;
+    });
+  }
+
+  void _handleStatsUpdated(Map<String, dynamic> stats) {
+    setState(() {
+      _stats = stats;
     });
   }
 
@@ -116,28 +143,41 @@ class _NewChatPageState extends ConsumerState<NewChatPage> {
       currentRoute: '/chat',
       appBarActions: [
         Container(
-          margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: (_isConnected ? Colors.green : Colors.red).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
+            color: (_stats['isConnected'] ? Colors.green : Colors.red).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                _isConnected ? Icons.wifi : Icons.wifi_off,
-                color: _isConnected ? Colors.green : Colors.red,
-                size: 16,
+                _stats['isConnected'] ? Icons.smart_toy : Icons.smart_toy_outlined,
+                color: _stats['isConnected'] ? Colors.green : Colors.red,
+                size: 14,
               ),
-              const SizedBox(width: 6),
-              Text(
-                _isConnected ? 'В сети' : 'Оффлайн',
-                style: TextStyle(
-                  color: _isConnected ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
+              const SizedBox(width: 4),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Grok-4',
+                    style: TextStyle(
+                      color: _stats['isConnected'] ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 10,
+                    ),
+                  ),
+                  Text(
+                    '${_stats['totalTokens']}t • ${_stats['messagesCount']}m',
+                    style: TextStyle(
+                      color: (_stats['isConnected'] ? Colors.green : Colors.red).withValues(alpha: 0.7),
+                      fontSize: 8,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

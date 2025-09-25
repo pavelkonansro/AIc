@@ -1,0 +1,119 @@
+# Docker Compose конфигурация для Synology NAS DS218
+# Использовать для развертывания тестовой среды AIc на NAS
+
+version: '3.8'
+
+services:
+  # PostgreSQL база данных
+  postgres-nas:
+    image: postgres:15-alpine
+    container_name: aic-postgres-nas
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aic
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_nas_data:/var/lib/postgresql/data
+      # Инициализация схемы при первом запуске
+      - ./apps/api/create-pii-fixed-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - aic-nas-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis для кэширования и сессий
+  redis-nas:
+    image: redis:7-alpine
+    container_name: aic-redis-nas
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_nas_data:/data
+    networks:
+      - aic-nas-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # API сервер (упрощенная версия)
+  api-nas:
+    image: node:20-alpine
+    container_name: aic-api-nas
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      sh -c "
+        npm install --only=production &&
+        node simple-test-server-nas.js
+      "
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: "development"
+      DATABASE_URL: "postgresql://postgres:postgres123@postgres-nas:5432/aic"
+      REDIS_URL: "redis://redis-nas:6379"
+      PORT: 3000
+      # Логирование
+      DEBUG: "aic:*"
+    volumes:
+      # Монтируем только необходимые файлы
+      - ./simple-test-server-nas.js:/app/simple-test-server-nas.js:ro
+      - ./package.json:/app/package.json:ro
+      - ./package-lock.json:/app/package-lock.json:ro
+    networks:
+      - aic-nas-network
+    depends_on:
+      postgres-nas:
+        condition: service_healthy
+      redis-nas:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Админка PostgreSQL (опционально, для отладки)
+  pgadmin-nas:
+    image: dpage/pgadmin4:latest
+    container_name: aic-pgadmin-nas
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@aic-app.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_nas_data:/var/lib/pgadmin
+    networks:
+      - aic-nas-network
+    depends_on:
+      - postgres-nas
+    profiles:
+      - admin # Запускать только при необходимости: docker-compose --profile admin up
+
+# Сети
+networks:
+  aic-nas-network:
+    driver: bridge
+    name: aic-nas-network
+
+# Постоянные тома
+volumes:
+  postgres_nas_data:
+    name: aic_postgres_nas_data
+  redis_nas_data:
+    name: aic_redis_nas_data
+  pgadmin_nas_data:
+    name: aic_pgadmin_nas_data

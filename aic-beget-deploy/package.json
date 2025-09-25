@@ -1,0 +1,27 @@
+{
+  "name": "aic-beget-server",
+  "version": "1.0.0",
+  "description": "AIc API server for Beget hosting with MySQL",
+  "main": "server-beget.js",
+  "scripts": {
+    "start": "node server-beget.js",
+    "dev": "nodemon server-beget.js",
+    "test": "node -e \"console.log('Server test - checking dependencies...')\" && node server-beget.js"
+  },
+  "keywords": ["aic", "api", "teen", "privacy", "beget", "mysql"],
+  "author": "AIc Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "mysql2": "^3.6.0",
+    "uuid": "^9.0.0",
+    "bcrypt": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
